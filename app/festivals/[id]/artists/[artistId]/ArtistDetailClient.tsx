@@ -95,6 +95,7 @@ interface Props {
   isAdmin: boolean;
   showFinancials?: boolean;
   updateArtist: (id: string, fd: FormData) => Promise<void>;
+  updateArtistImage: (artistId: string, imageUrl: string) => Promise<void>;
   deleteArtist: (id: string, festivalId: string) => Promise<void>;
   createArtistFile: (artistId: string, festivalId: string, name: string, url: string, isExternal: boolean, fileType: string) => Promise<void>;
   deleteArtistFile: (id: string, artistId: string, festivalId: string) => Promise<void>;
@@ -162,6 +163,7 @@ export default function ArtistDetailClient({
   isAdmin,
   showFinancials = true,
   updateArtist,
+  updateArtistImage,
   deleteArtist,
   createArtistContact,
   deleteArtistContact,
@@ -202,7 +204,10 @@ export default function ArtistDetailClient({
       fd.append("file", file);
       const res = await fetch("/api/upload?folder=artists", { method: "POST", body: fd });
       const data = await res.json();
-      if (data.url) setPendingImageUrl(data.url);
+      if (data.url) {
+        setPendingImageUrl(data.url);
+        await updateArtistImage(artist.id, data.url);
+      }
     } finally {
       setImageUploading(false);
     }

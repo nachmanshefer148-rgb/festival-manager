@@ -70,6 +70,14 @@ export async function createArtist(formData: FormData): Promise<{ id: string }> 
   return { id: artist.id };
 }
 
+export async function updateArtistImage(artistId: string, imageUrl: string) {
+  await requireAdmin();
+  await prisma.artist.update({
+    where: { id: artistId },
+    data: { profileImageUrl: imageUrl },
+  });
+}
+
 export async function updateArtist(id: string, formData: FormData) {
   await requireAdmin();
   const artist = await prisma.artist.findUniqueOrThrow({ where: { id } });

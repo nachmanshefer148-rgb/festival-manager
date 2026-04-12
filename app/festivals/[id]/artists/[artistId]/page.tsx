@@ -5,6 +5,7 @@ import { getRole } from "@/lib/auth";
 import { getAppSettings } from "@/lib/settings";
 import {
   updateArtist,
+  updateArtistImage,
   deleteArtist,
   createArtistContact,
   deleteArtistContact,
@@ -72,6 +73,7 @@ export default async function ArtistDetailPage({
       isAdmin={role === "admin"}
       showFinancials={showFinancials}
       updateArtist={updateArtist}
+      updateArtistImage={updateArtistImage}
       deleteArtist={deleteArtist}
       createArtistContact={createArtistContact}
       deleteArtistContact={deleteArtistContact}
