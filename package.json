@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev --webpack",
-    "build": "prisma generate && prisma db push --skip-generate && next build --webpack",
+    "build": "prisma generate && prisma db push && next build --webpack",
     "start": "next start"
   },
   "dependencies": {
