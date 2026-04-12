@@ -207,7 +207,12 @@ export default function ArtistDetailClient({
       if (data.url) {
         setPendingImageUrl(data.url);
         await updateArtistImage(artist.id, data.url);
+        toast("התמונה נשמרה");
+      } else {
+        toast(data.error ?? "שגיאה בהעלאת התמונה", "error");
       }
+    } catch {
+      toast("שגיאה בהעלאת התמונה", "error");
     } finally {
       setImageUploading(false);
     }

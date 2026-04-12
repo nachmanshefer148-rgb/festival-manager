@@ -72,10 +72,12 @@ export async function createArtist(formData: FormData): Promise<{ id: string }> 
 
 export async function updateArtistImage(artistId: string, imageUrl: string) {
   await requireAdmin();
-  await prisma.artist.update({
+  const artist = await prisma.artist.update({
     where: { id: artistId },
     data: { profileImageUrl: imageUrl },
   });
+  revalidatePath(`/festivals/${artist.festivalId}/artists`);
+  revalidatePath(`/festivals/${artist.festivalId}/artists/${artistId}`);
 }
 
 export async function updateArtist(id: string, formData: FormData) {
