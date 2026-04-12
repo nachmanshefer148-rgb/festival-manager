@@ -300,7 +300,7 @@ function StageCard({
               <div className="flex items-center gap-2 text-gray-600">
                 <span>🎚️</span>
                 <span>
-                  בלאנסים: {stage.soundcheckStart ?? "?"} – {stage.soundcheckEnd ?? "?"}
+                  בלאנסים: <span dir="ltr">{stage.soundcheckStart ?? "?"} – {stage.soundcheckEnd ?? "?"}</span>
                 </span>
               </div>
             )}
@@ -308,7 +308,7 @@ function StageCard({
               <div className="flex items-center gap-2 text-gray-600">
                 <span>🎵</span>
                 <span>
-                  הופעות: {stage.performancesStart ?? "?"} – {stage.performancesEnd ?? "?"}
+                  הופעות: <span dir="ltr">{stage.performancesStart ?? "?"} – {stage.performancesEnd ?? "?"}</span>
                 </span>
               </div>
             )}
