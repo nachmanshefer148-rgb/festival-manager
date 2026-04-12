@@ -10,6 +10,9 @@ import {
   generateInviteToken,
   approveTeamApplication,
   rejectTeamApplication,
+  createCommunityContact,
+  updateCommunityContact,
+  deleteCommunityContact,
 } from "@/app/actions";
 import TeamClient from "./TeamClient";
 import { getRole } from "@/lib/auth";
@@ -27,7 +30,7 @@ export default async function TeamPage({
   if (!festival) notFound();
   const isAdmin = role === "admin";
 
-  const [members, roles, applications] = await Promise.all([
+  const [members, roles, applications, communityContacts] = await Promise.all([
     prisma.teamMember.findMany({
       where: { festivalId: id },
       include: { role: true },
@@ -40,6 +43,10 @@ export default async function TeamPage({
     prisma.teamApplication.findMany({
       where: { festivalId: id, status: "pending" },
       orderBy: { createdAt: "desc" },
+    }),
+    prisma.festivalCommunityContact.findMany({
+      where: { festivalId: id },
+      orderBy: { role: "asc" },
     }),
   ]);
 
@@ -59,6 +66,10 @@ export default async function TeamPage({
       generateInviteToken={generateInviteToken}
       approveTeamApplication={approveTeamApplication}
       rejectTeamApplication={rejectTeamApplication}
+      communityContacts={communityContacts}
+      createCommunityContact={createCommunityContact}
+      updateCommunityContact={updateCommunityContact}
+      deleteCommunityContact={deleteCommunityContact}
     />
   );
 }

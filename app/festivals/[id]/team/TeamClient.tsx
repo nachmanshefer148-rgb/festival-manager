@@ -40,6 +40,14 @@ interface TeamApplication {
   createdAt: Date;
 }
 
+interface CommunityContact {
+  id: string;
+  name: string;
+  role: string;
+  phone: string | null;
+  notes: string | null;
+}
+
 interface Props {
   festivalId: string;
   members: TeamMember[];
@@ -55,6 +63,10 @@ interface Props {
   generateInviteToken: (festivalId: string) => Promise<string>;
   approveTeamApplication: (applicationId: string, roleId: string) => Promise<void>;
   rejectTeamApplication: (applicationId: string) => Promise<void>;
+  communityContacts: CommunityContact[];
+  createCommunityContact: (festivalId: string, formData: FormData) => Promise<void>;
+  updateCommunityContact: (id: string, festivalId: string, formData: FormData) => Promise<void>;
+  deleteCommunityContact: (id: string, festivalId: string) => Promise<void>;
 }
 
 export default function TeamClient({
@@ -72,6 +84,10 @@ export default function TeamClient({
   generateInviteToken,
   approveTeamApplication,
   rejectTeamApplication,
+  communityContacts,
+  createCommunityContact,
+  updateCommunityContact,
+  deleteCommunityContact,
 }: Props) {
   const { toast } = useToast();
   const confirm = useConfirm();
@@ -84,6 +100,9 @@ export default function TeamClient({
   const [copied, setCopied] = useState(false);
   const [approvingApplication, setApprovingApplication] = useState<TeamApplication | null>(null);
   const [approveRoleId, setApproveRoleId] = useState<string>("");
+  const [showCommunityForm, setShowCommunityForm] = useState(false);
+  const [editingContact, setEditingContact] = useState<CommunityContact | null>(null);
+  const [submittingContact, setSubmittingContact] = useState(false);
 
   const filtered = members.filter((m) => {
     if (filterRoleId !== "ALL" && m.role.id !== filterRoleId) return false;
@@ -323,6 +342,76 @@ export default function TeamClient({
         </div>
       )}
 
+      {/* Community Contacts Section */}
+      <div className="mt-8">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold text-gray-800">🏛️ גורמים חיצוניים</h2>
+          {isAdmin && (
+            <button
+              onClick={() => { setEditingContact(null); setShowCommunityForm(true); }}
+              className="bg-violet-600 text-white px-3 py-1.5 rounded-xl text-sm font-medium hover:bg-violet-700 transition-colors"
+            >
+              + הוסף גורם
+            </button>
+          )}
+        </div>
+
+        {communityContacts.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-8 text-center text-gray-400">
+            <div className="text-3xl mb-2">🏛️</div>
+            <p className="text-sm">עירייה, משטרה, קב"ט ועוד — הוסף גורמים חיצוניים לפסטיבל</p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="text-right px-4 py-3 font-semibold text-gray-600">שם</th>
+                    <th className="text-right px-4 py-3 font-semibold text-gray-600">תפקיד</th>
+                    <th className="text-right px-4 py-3 font-semibold text-gray-600">טלפון</th>
+                    {isAdmin && <th className="px-4 py-3"></th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {communityContacts.map((c, i) => (
+                    <tr key={c.id} className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${i % 2 === 0 ? "" : "bg-gray-50/30"}`}>
+                      <td className="px-4 py-3 font-medium text-gray-900">
+                        {c.name}
+                        {c.notes && <p className="text-xs text-gray-400 font-normal">{c.notes}</p>}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">{c.role}</td>
+                      <td className="px-4 py-3 text-gray-600" dir="ltr">{c.phone ?? <span className="text-gray-300">—</span>}</td>
+                      {isAdmin && (
+                        <td className="px-4 py-3">
+                          <div className="flex gap-2 justify-end">
+                            <button
+                              onClick={() => { setEditingContact(c); setShowCommunityForm(true); }}
+                              className="text-gray-400 hover:text-violet-600 transition-colors text-sm px-2 py-1 rounded hover:bg-violet-50"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              onClick={async () => {
+                                const ok = await confirm({ message: `למחוק את "${c.name}"?`, danger: true, confirmLabel: "מחק" });
+                                if (ok) { await deleteCommunityContact(c.id, festivalId); toast("הגורם נמחק"); }
+                              }}
+                              className="text-gray-400 hover:text-red-500 transition-colors text-sm px-2 py-1 rounded hover:bg-red-50"
+                            >
+                              🗑
+                            </button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Approve Application Modal */}
       {approvingApplication && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -437,6 +526,102 @@ export default function TeamClient({
               >
                 + הוסף
               </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit Community Contact Modal */}
+      {showCommunityForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setShowCommunityForm(false); setEditingContact(null); }} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-[95vw] sm:max-w-md p-4 sm:p-6 z-10">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {editingContact ? "עריכת גורם חיצוני" : "הוסף גורם חיצוני"}
+              </h2>
+              <button onClick={() => { setShowCommunityForm(false); setEditingContact(null); }} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+            </div>
+
+            <form
+              action={async (fd) => {
+                setSubmittingContact(true);
+                try {
+                  if (editingContact) {
+                    await updateCommunityContact(editingContact.id, festivalId, fd);
+                  } else {
+                    await createCommunityContact(festivalId, fd);
+                  }
+                  setShowCommunityForm(false);
+                  setEditingContact(null);
+                  toast(editingContact ? "הגורם עודכן" : "הגורם נוסף");
+                } finally {
+                  setSubmittingContact(false);
+                }
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">שם *</label>
+                <input
+                  name="name"
+                  required
+                  defaultValue={editingContact?.name ?? ""}
+                  autoFocus
+                  placeholder="ישראל ישראלי"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">תפקיד *</label>
+                <input
+                  name="role"
+                  required
+                  defaultValue={editingContact?.role ?? ""}
+                  placeholder="נציג עירייה / קב&quot;ט / מפקד משטרה..."
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">טלפון</label>
+                <input
+                  name="phone"
+                  type="tel"
+                  defaultValue={editingContact?.phone ?? ""}
+                  placeholder="050-0000000"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition"
+                  dir="ltr"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">הערות</label>
+                <textarea
+                  name="notes"
+                  rows={2}
+                  defaultValue={editingContact?.notes ?? ""}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none"
+                />
+              </div>
+
+              <div className="flex gap-2 justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowCommunityForm(false); setEditingContact(null); }}
+                  className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition"
+                >
+                  ביטול
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingContact}
+                  className="px-4 py-2 text-sm bg-violet-600 text-white rounded-xl hover:bg-violet-700 transition disabled:opacity-50"
+                >
+                  {editingContact ? "שמור שינויים" : "הוסף"}
+                </button>
+              </div>
             </form>
           </div>
         </div>

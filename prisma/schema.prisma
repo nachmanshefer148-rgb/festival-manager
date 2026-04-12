@@ -20,14 +20,16 @@ model Festival {
   updatedAt   DateTime @updatedAt
   inviteToken String?  @unique
 
-  stages           Stage[]
-  artists          Artist[]
-  teamMembers      TeamMember[]
-  teamMemberRoles  TeamMemberRole[]
-  budgetItems      BudgetItem[]
-  applications     TeamApplication[]
-  vendors          Vendor[]
-  festivalFiles    FestivalFile[]
+  stages            Stage[]
+  artists           Artist[]
+  teamMembers       TeamMember[]
+  teamMemberRoles   TeamMemberRole[]
+  budgetItems       BudgetItem[]
+  applications      TeamApplication[]
+  vendors           Vendor[]
+  festivalFiles     FestivalFile[]
+  setupTasks        FestivalSetupTask[]
+  communityContacts FestivalCommunityContact[]
 }
 
 model Stage {
@@ -127,6 +129,7 @@ model ArtistContact {
   role     String?
   phone    String?
   email    String?
+  idNumber String?
   artistId String
   artist   Artist  @relation(fields: [artistId], references: [id], onDelete: Cascade)
 }
@@ -163,11 +166,12 @@ model ArtistPayment {
 }
 
 model TimeSlot {
-  id        String         @id @default(cuid())
-  startTime DateTime
-  endTime   DateTime
-  status    TimeSlotStatus @default(SCHEDULED)
-  notes     String?
+  id             String         @id @default(cuid())
+  startTime      DateTime
+  endTime        DateTime
+  status         TimeSlotStatus @default(SCHEDULED)
+  notes          String?
+  technicianName String?
 
   stageId   String
   stage     Stage  @relation(fields: [stageId], references: [id], onDelete: Cascade)
@@ -287,6 +291,29 @@ model AppSettings {
   adminPassword  String
   viewerPassword String
   showBudget     Boolean @default(true)
+}
+
+model FestivalSetupTask {
+  id          String   @id @default(cuid())
+  dayLabel    String
+  date        String?
+  time        String?
+  category    String?
+  description String
+  responsible String?
+  sortOrder   Int      @default(0)
+  festivalId  String
+  festival    Festival @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+}
+
+model FestivalCommunityContact {
+  id         String  @id @default(cuid())
+  name       String
+  role       String
+  phone      String?
+  notes      String?
+  festivalId String
+  festival   Festival @relation(fields: [festivalId], references: [id], onDelete: Cascade)
 }
 
 enum TimeSlotStatus {

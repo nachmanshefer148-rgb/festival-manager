@@ -23,6 +23,7 @@ interface ArtistContact {
   role: string | null;
   phone: string | null;
   email: string | null;
+  idNumber: string | null;
 }
 
 interface ArtistVehicle {
@@ -604,6 +605,7 @@ function ContactsTab({
                 </a>
               )}
               {c.email && <span>✉️ {c.email}</span>}
+              {c.idNumber && <span>🪪 {c.idNumber}</span>}
             </div>
           </div>
           {isAdmin && (
@@ -653,6 +655,10 @@ function ContactsTab({
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">אימייל</label>
               <input name="email" type="email" placeholder="contact@..." className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">ת.ז</label>
+              <input name="idNumber" placeholder="123456789" className={inputCls} />
             </div>
           </div>
           <div className="flex gap-2 pt-1">

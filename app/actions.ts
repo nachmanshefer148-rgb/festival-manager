@@ -141,6 +141,22 @@ export async function createArtistContact(artistId: string, festivalId: string, 
       role: (formData.get("role") as string) || null,
       phone: (formData.get("phone") as string) || null,
       email: (formData.get("email") as string) || null,
+      idNumber: (formData.get("idNumber") as string) || null,
+    },
+  });
+  revalidatePath(`/festivals/${festivalId}/artists/${artistId}`);
+}
+
+export async function updateArtistContact(id: string, artistId: string, festivalId: string, formData: FormData) {
+  await requireAdmin();
+  await prisma.artistContact.update({
+    where: { id },
+    data: {
+      name: formData.get("name") as string,
+      role: (formData.get("role") as string) || null,
+      phone: (formData.get("phone") as string) || null,
+      email: (formData.get("email") as string) || null,
+      idNumber: (formData.get("idNumber") as string) || null,
     },
   });
   revalidatePath(`/festivals/${festivalId}/artists/${artistId}`);
@@ -372,9 +388,22 @@ export async function createTimeSlot(formData: FormData) {
       startTime,
       endTime,
       notes: (formData.get("notes") as string) || null,
+      technicianName: (formData.get("technicianName") as string) || null,
     },
   });
 
+  revalidatePath(`/festivals/${festivalId}/schedule`);
+}
+
+export async function updateTimeSlot(id: string, festivalId: string, formData: FormData) {
+  await requireAdmin();
+  await prisma.timeSlot.update({
+    where: { id },
+    data: {
+      notes: (formData.get("notes") as string) || null,
+      technicianName: (formData.get("technicianName") as string) || null,
+    },
+  });
   revalidatePath(`/festivals/${festivalId}/schedule`);
 }
 
@@ -787,6 +816,76 @@ export async function deleteVendorFile(id: string, festivalId: string) {
   await requireAdmin();
   await prisma.vendorFile.delete({ where: { id } });
   revalidatePath(`/festivals/${festivalId}/vendors`);
+}
+
+// ─── Vendor Self-Service Form ─────────────────────────────────────────────────
+
+// ─── Setup Tasks (לוז טכני כללי) ─────────────────────────────────────────────
+
+export async function createSetupTask(festivalId: string, dayLabel: string, date: string | null, time: string | null, category: string | null, description: string, responsible: string | null) {
+  await requireAdmin();
+  await prisma.festivalSetupTask.create({
+    data: { festivalId, dayLabel, date: date || null, time: time || null, category: category || null, description, responsible: responsible || null },
+  });
+  revalidatePath(`/festivals/${festivalId}/schedule`);
+}
+
+export async function updateSetupTask(id: string, festivalId: string, formData: FormData) {
+  await requireAdmin();
+  await prisma.festivalSetupTask.update({
+    where: { id },
+    data: {
+      dayLabel: formData.get("dayLabel") as string,
+      date: (formData.get("date") as string) || null,
+      time: (formData.get("time") as string) || null,
+      category: (formData.get("category") as string) || null,
+      description: formData.get("description") as string,
+      responsible: (formData.get("responsible") as string) || null,
+    },
+  });
+  revalidatePath(`/festivals/${festivalId}/schedule`);
+}
+
+export async function deleteSetupTask(id: string, festivalId: string) {
+  await requireAdmin();
+  await prisma.festivalSetupTask.delete({ where: { id } });
+  revalidatePath(`/festivals/${festivalId}/schedule`);
+}
+
+// ─── Community Contacts (גורמים חיצוניים) ────────────────────────────────────
+
+export async function createCommunityContact(festivalId: string, formData: FormData) {
+  await requireAdmin();
+  await prisma.festivalCommunityContact.create({
+    data: {
+      festivalId,
+      name: formData.get("name") as string,
+      role: formData.get("role") as string,
+      phone: (formData.get("phone") as string) || null,
+      notes: (formData.get("notes") as string) || null,
+    },
+  });
+  revalidatePath(`/festivals/${festivalId}/team`);
+}
+
+export async function updateCommunityContact(id: string, festivalId: string, formData: FormData) {
+  await requireAdmin();
+  await prisma.festivalCommunityContact.update({
+    where: { id },
+    data: {
+      name: formData.get("name") as string,
+      role: formData.get("role") as string,
+      phone: (formData.get("phone") as string) || null,
+      notes: (formData.get("notes") as string) || null,
+    },
+  });
+  revalidatePath(`/festivals/${festivalId}/team`);
+}
+
+export async function deleteCommunityContact(id: string, festivalId: string) {
+  await requireAdmin();
+  await prisma.festivalCommunityContact.delete({ where: { id } });
+  revalidatePath(`/festivals/${festivalId}/team`);
 }
 
 // ─── Vendor Self-Service Form ─────────────────────────────────────────────────

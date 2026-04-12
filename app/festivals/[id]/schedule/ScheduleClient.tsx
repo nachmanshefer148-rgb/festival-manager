@@ -20,8 +20,19 @@ interface TimeSlot {
   endTime: string;
   status: string;
   notes: string | null;
+  technicianName: string | null;
   artistId: string | null;
   artist: Artist | null;
+}
+
+interface SetupTask {
+  id: string;
+  dayLabel: string;
+  date: string | null;
+  time: string | null;
+  category: string | null;
+  description: string;
+  responsible: string | null;
 }
 
 interface Stage {
@@ -37,11 +48,16 @@ interface Props {
   stages: Stage[];
   artists: Artist[];
   isAdmin: boolean;
+  setupTasks: SetupTask[];
   createStage: (formData: FormData) => Promise<void>;
   deleteStage: (id: string, festivalId: string) => Promise<void>;
   createTimeSlot: (formData: FormData) => Promise<void>;
   deleteTimeSlot: (id: string, festivalId: string) => Promise<void>;
   updateTimeSlotStatus: (id: string, status: string, festivalId: string) => Promise<void>;
+  updateTimeSlot: (id: string, festivalId: string, formData: FormData) => Promise<void>;
+  createSetupTask: (festivalId: string, dayLabel: string, date: string | null, time: string | null, category: string | null, description: string, responsible: string | null) => Promise<void>;
+  updateSetupTask: (id: string, festivalId: string, formData: FormData) => Promise<void>;
+  deleteSetupTask: (id: string, festivalId: string) => Promise<void>;
 }
 
 export default function ScheduleClient({
@@ -50,11 +66,16 @@ export default function ScheduleClient({
   stages,
   artists,
   isAdmin,
+  setupTasks,
   createStage,
   deleteStage,
   createTimeSlot,
   deleteTimeSlot,
   updateTimeSlotStatus,
+  updateTimeSlot,
+  createSetupTask,
+  updateSetupTask,
+  deleteSetupTask,
 }: Props) {
   const { toast } = useToast();
   const confirm = useConfirm();
@@ -63,6 +84,10 @@ export default function ScheduleClient({
   const [selectedStageForSlot, setSelectedStageForSlot] = useState(stages[0]?.id ?? "");
   const [submittingStage, setSubmittingStage] = useState(false);
   const [submittingSlot, setSubmittingSlot] = useState(false);
+  const [showSetupTasks, setShowSetupTasks] = useState(false);
+  const [showAddTask, setShowAddTask] = useState(false);
+  const [editingTask, setEditingTask] = useState<SetupTask | null>(null);
+  const [submittingTask, setSubmittingTask] = useState(false);
 
   // Build date tabs from festival range
   const festivalStart = new Date(festival.startDate);
@@ -107,6 +132,72 @@ export default function ScheduleClient({
               >
                 + תזמן הופעה
               </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Setup Tasks — לוז טכני כללי */}
+      <div className="mb-4 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <button
+          onClick={() => setShowSetupTasks(!showSetupTasks)}
+          className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition"
+        >
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-gray-800">📋 לוז טכני כללי</span>
+            {setupTasks.length > 0 && (
+              <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">{setupTasks.length} משימות</span>
+            )}
+          </div>
+          <span className="text-gray-400 text-sm">{showSetupTasks ? "▲" : "▼"}</span>
+        </button>
+
+        {showSetupTasks && (
+          <div className="border-t border-gray-100">
+            {setupTasks.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-6">אין משימות עדיין</p>
+            ) : (
+              <div>
+                {/* Group by dayLabel */}
+                {Array.from(new Set(setupTasks.map((t) => t.dayLabel))).map((day) => (
+                  <div key={day}>
+                    <div className="bg-violet-50 px-4 py-1.5 text-xs font-bold text-violet-700 border-b border-violet-100">{day}</div>
+                    <table className="w-full text-sm">
+                      <tbody>
+                        {setupTasks.filter((t) => t.dayLabel === day).map((task) => (
+                          <tr key={task.id} className="border-b border-gray-50 hover:bg-gray-50 group">
+                            <td className="px-3 py-2 text-gray-500 w-16 shrink-0" dir="ltr">{task.time ?? ""}</td>
+                            <td className="px-2 py-2 text-violet-600 font-medium w-24 shrink-0">{task.category ?? ""}</td>
+                            <td className="px-2 py-2 text-gray-800 flex-1">{task.description}</td>
+                            <td className="px-2 py-2 text-gray-400 w-24 shrink-0">{task.responsible ?? ""}</td>
+                            {isAdmin && (
+                              <td className="px-2 py-2 w-16 shrink-0">
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                                  <button onClick={() => setEditingTask(task)} className="text-gray-400 hover:text-violet-600 text-xs">✏️</button>
+                                  <button onClick={async () => {
+                                    const ok = await confirm({ message: "למחוק משימה זו?", danger: true, confirmLabel: "מחק" });
+                                    if (ok) { await deleteSetupTask(task.id, festivalId); toast("המשימה נמחקה"); }
+                                  }} className="text-gray-300 hover:text-red-400 text-xs">✕</button>
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ))}
+              </div>
+            )}
+            {isAdmin && (
+              <div className="px-4 py-2 border-t border-gray-100">
+                <button
+                  onClick={() => setShowAddTask(true)}
+                  className="text-xs text-violet-600 hover:text-violet-700 font-medium"
+                >
+                  + הוסף משימה
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -313,6 +404,15 @@ export default function ScheduleClient({
             </div>
 
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">טכנאי מפעיל</label>
+              <input
+                name="technicianName"
+                placeholder="שם הטכנאי..."
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm"
+              />
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">הערות</label>
               <textarea
                 name="notes"
@@ -325,6 +425,69 @@ export default function ScheduleClient({
             <div className="flex gap-2 justify-end pt-2">
               <button type="button" onClick={() => setShowAddSlot(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition">ביטול</button>
               <button type="submit" disabled={submittingSlot} className="px-4 py-2 text-sm bg-violet-600 text-white rounded-xl hover:bg-violet-700 transition disabled:opacity-60">{submittingSlot ? "שומר..." : "תזמן הופעה"}</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Add Setup Task Modal */}
+      {(showAddTask || editingTask) && (
+        <Modal title={editingTask ? "עריכת משימה" : "הוסף משימה"} onClose={() => { setShowAddTask(false); setEditingTask(null); }}>
+          <form
+            action={async (fd) => {
+              setSubmittingTask(true);
+              try {
+                if (editingTask) {
+                  await updateSetupTask(editingTask.id, festivalId, fd);
+                  setEditingTask(null);
+                  toast("המשימה עודכנה");
+                } else {
+                  await createSetupTask(
+                    festivalId,
+                    fd.get("dayLabel") as string,
+                    (fd.get("date") as string) || null,
+                    (fd.get("time") as string) || null,
+                    (fd.get("category") as string) || null,
+                    fd.get("description") as string,
+                    (fd.get("responsible") as string) || null,
+                  );
+                  setShowAddTask(false);
+                  toast("המשימה נוספה");
+                }
+              } catch { toast("שגיאה", "error"); }
+              finally { setSubmittingTask(false); }
+            }}
+            className="space-y-3"
+          >
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">יום *</label>
+                <input name="dayLabel" required defaultValue={editingTask?.dayLabel ?? ""} placeholder='יום א׳ 6/7' className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">תאריך (למיון)</label>
+                <input name="date" type="date" defaultValue={editingTask?.date ?? ""} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">שעה</label>
+                <input name="time" type="time" defaultValue={editingTask?.time ?? ""} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">מחלקה</label>
+                <input name="category" defaultValue={editingTask?.category ?? ""} placeholder="במה, חשמל, שטח..." className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">אחראי</label>
+                <input name="responsible" defaultValue={editingTask?.responsible ?? ""} placeholder="שם האחראי" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm" />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">תיאור *</label>
+                <textarea name="description" required defaultValue={editingTask?.description ?? ""} rows={2} placeholder="תיאור המשימה..." className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none" />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end pt-2">
+              <button type="button" onClick={() => { setShowAddTask(false); setEditingTask(null); }} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition">ביטול</button>
+              <button type="submit" disabled={submittingTask} className="px-4 py-2 text-sm bg-violet-600 text-white rounded-xl hover:bg-violet-700 transition disabled:opacity-60">{submittingTask ? "שומר..." : editingTask ? "שמור" : "הוסף"}</button>
             </div>
           </form>
         </Modal>
@@ -401,7 +564,8 @@ function SlotCard({
           </div>
         )}
       </div>
-      {slot.notes && <p className="text-xs text-gray-400 mt-1.5 truncate">{slot.notes}</p>}
+      {slot.technicianName && <p className="text-xs text-blue-400 mt-1 truncate">🎚️ {slot.technicianName}</p>}
+      {slot.notes && <p className="text-xs text-gray-400 mt-0.5 truncate">{slot.notes}</p>}
     </div>
   );
 }

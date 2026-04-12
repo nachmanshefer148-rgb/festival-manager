@@ -40,6 +40,15 @@ interface ArtistVehicle {
   arrivalTime: string | null;
 }
 
+interface ArtistContact {
+  id: string;
+  name: string;
+  role: string | null;
+  phone: string | null;
+  email: string | null;
+  idNumber: string | null;
+}
+
 interface Artist {
   id: string;
   name: string;
@@ -52,6 +61,7 @@ interface Artist {
   agentPhone: string | null;
   files: ArtistFile[];
   vehicles: ArtistVehicle[];
+  contacts: ArtistContact[];
   timeSlots: ArtistTimeSlot[];
 }
 
@@ -71,12 +81,21 @@ interface VendorFile {
   createdAt: string;
 }
 
+interface VendorContact {
+  id: string;
+  name: string;
+  role: string | null;
+  phone: string | null;
+  email: string | null;
+}
+
 interface Vendor {
   id: string;
   name: string;
   category: string;
   files: VendorFile[];
   vehicles: VendorVehicle[];
+  contacts: VendorContact[];
 }
 
 interface StageFile {
@@ -93,7 +112,26 @@ interface StageTimeSlot {
   startTime: string;
   endTime: string;
   status: string;
+  technicianName: string | null;
   artist: { name: string } | null;
+}
+
+interface SetupTask {
+  id: string;
+  dayLabel: string;
+  date: string | null;
+  time: string | null;
+  category: string | null;
+  description: string;
+  responsible: string | null;
+}
+
+interface CommunityContact {
+  id: string;
+  name: string;
+  role: string;
+  phone: string | null;
+  notes: string | null;
 }
 
 interface Stage {
@@ -133,6 +171,8 @@ interface Props {
   vendors: Vendor[];
   stages: Stage[];
   festivalFiles: FestivalFile[];
+  setupTasks: SetupTask[];
+  communityContacts: CommunityContact[];
   isAdmin: boolean;
   createFestivalFile: (festivalId: string, name: string, url: string, isExternal: boolean, fileType: string) => Promise<void>;
   deleteFestivalFile: (id: string, festivalId: string) => Promise<void>;
@@ -320,6 +360,193 @@ function buildScheduleDoc(festival: Festival, stages: Stage[]) {
     ${stageSections}`;
 }
 
+function buildTechnicalScheduleDoc(festival: Festival, tasks: SetupTask[]) {
+  if (tasks.length === 0) return `<h1>🔧 לוז טכני כללי</h1><p style='color:#9ca3af'>אין משימות</p>`;
+  const byDay: Record<string, SetupTask[]> = {};
+  tasks.forEach((t) => {
+    if (!byDay[t.dayLabel]) byDay[t.dayLabel] = [];
+    byDay[t.dayLabel].push(t);
+  });
+  const sections = Object.entries(byDay).map(([day, items]) => {
+    const rows = items.map((t) => `<tr>
+      <td style="direction:ltr;text-align:left;white-space:nowrap">${t.time ?? "—"}</td>
+      <td>${t.category ?? "—"}</td>
+      <td>${t.description}</td>
+      <td>${t.responsible ?? "—"}</td>
+    </tr>`).join("");
+    return `<h2>${day}</h2>
+    <table>
+      <thead><tr><th>שעה</th><th>מחלקה</th><th>תיאור</th><th>אחראי</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  }).join("");
+  return `
+    <h1>🔧 לוז טכני כללי</h1>
+    <div class="meta">${festival.name} · ${fmtDate(festival.startDate)} · הופק ב-${fmtDate(new Date().toISOString())}</div>
+    ${sections}`;
+}
+
+function buildPerformanceScheduleDoc(festival: Festival, stages: Stage[]) {
+  // Collect all days from timeslots
+  const dayMap: Record<string, StageTimeSlot[]> = {};
+  stages.forEach((s) => {
+    s.timeSlots.forEach((ts) => {
+      const d = ts.startTime.slice(0, 10);
+      if (!dayMap[d]) dayMap[d] = [];
+      dayMap[d].push(ts);
+    });
+  });
+  const days = Object.keys(dayMap).sort();
+
+  if (days.length === 0) {
+    return `<h1>🎵 לוז הופעות ובאלנסים</h1><p style='color:#9ca3af'>אין תזמונים</p>`;
+  }
+
+  // Two columns per day pair
+  const pairs: string[][] = [];
+  for (let i = 0; i < days.length; i += 2) {
+    pairs.push(days.slice(i, i + 2));
+  }
+
+  const tables = pairs.map((pair) => {
+    const cols = pair.map((day) => {
+      const slots = (dayMap[day] ?? []).sort((a, b) => a.startTime.localeCompare(b.startTime));
+      const label = new Date(day).toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "numeric" });
+      const rows = slots.map((ts) => `<tr>
+        <td style="direction:ltr;text-align:left;white-space:nowrap">${fmtTime(ts.startTime)}</td>
+        <td>${ts.artist?.name ?? "—"}</td>
+        <td>${ts.technicianName ?? "—"}</td>
+      </tr>`).join("");
+      return `<th colspan="3" style="text-align:center;background:#4c1d95">${label}</th>`;
+    });
+
+    const rowsByDay = pair.map((day) =>
+      (dayMap[day] ?? []).sort((a, b) => a.startTime.localeCompare(b.startTime))
+    );
+    const maxRows = Math.max(...rowsByDay.map((r) => r.length));
+
+    const bodyRows = Array.from({ length: maxRows }, (_, i) => {
+      return pair.map((day, ci) => {
+        const ts = rowsByDay[ci][i];
+        if (!ts) return `<td></td><td></td><td></td>`;
+        return `<td style="direction:ltr;text-align:left;white-space:nowrap">${fmtTime(ts.startTime)}</td><td>${ts.artist?.name ?? "—"}</td><td>${ts.technicianName ?? "—"}</td>`;
+      }).join("");
+    }).map((cells) => `<tr>${cells}</tr>`).join("");
+
+    const subHeaders = pair.map(() => `<th>שעה</th><th>הרכב</th><th>טכנאי</th>`).join("");
+
+    return `<table>
+      <thead>
+        <tr>${cols.join("")}</tr>
+        <tr>${subHeaders}</tr>
+      </thead>
+      <tbody>${bodyRows}</tbody>
+    </table>`;
+  }).join("");
+
+  return `
+    <h1>🎵 לוז הופעות ובאלנסים</h1>
+    <div class="meta">${festival.name} · ${fmtDate(festival.startDate)}–${fmtDate(festival.endDate)} · הופק ב-${fmtDate(new Date().toISOString())}</div>
+    ${tables}`;
+}
+
+function buildCrewListsDoc(festival: Festival, artists: Artist[]) {
+  const sections = artists.map((a) => {
+    const mainContact = a.contactPhone || a.agentPhone
+      ? `<p style="font-size:11px;color:#6b7280">איש קשר: ${a.agentName ?? ""} ${a.agentPhone ?? a.contactPhone ?? ""}</p>`
+      : "";
+    const contacts = [
+      { name: a.name, idNumber: "", carNumber: a.vehicles[0]?.plateNumber ?? "" },
+      ...a.contacts.map((c) => ({ name: c.name, idNumber: c.idNumber ?? "", carNumber: "" })),
+    ];
+    const rows = contacts.map((c) => `<tr>
+      <td>${c.name}</td>
+      <td>${c.idNumber ?? "—"}</td>
+      <td>${c.carNumber ?? "—"}</td>
+    </tr>`).join("");
+    return `<h2>🎤 ${a.name}</h2>
+    ${mainContact}
+    <table>
+      <thead><tr><th>שם מלא</th><th>ת.ז</th><th>מס' רכב</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  }).join("");
+  return `
+    <h1>👥 רשימות צוותים — להקות</h1>
+    <div class="meta">${festival.name} · ${fmtDate(festival.startDate)} · הופק ב-${fmtDate(new Date().toISOString())}</div>
+    ${sections || "<p style='color:#9ca3af'>אין אמנים</p>"}`;
+}
+
+function buildShowCoordinationDoc(
+  festival: Festival,
+  tasks: SetupTask[],
+  teamMembers: TeamMember[],
+  artists: Artist[],
+  communityContacts: CommunityContact[],
+  vendors: Vendor[],
+  stages: Stage[]
+) {
+  // Section 1: General schedule (setup tasks)
+  const byDay: Record<string, SetupTask[]> = {};
+  tasks.forEach((t) => { if (!byDay[t.dayLabel]) byDay[t.dayLabel] = []; byDay[t.dayLabel].push(t); });
+  const scheduleRows = Object.entries(byDay).map(([day, items]) =>
+    `<tr><td colspan="4" style="background:#ede9fe;font-weight:bold;padding:6px 10px">${day}</td></tr>` +
+    items.map((t) => `<tr><td style="direction:ltr;text-align:left">${t.time ?? "—"}</td><td>${t.category ?? "—"}</td><td>${t.description}</td><td>${t.responsible ?? "—"}</td></tr>`).join("")
+  ).join("");
+
+  // Section 2: Team + Artists two-column
+  const teamRows = teamMembers.map((m) => `<tr>
+    <td>${m.firstName} ${m.lastName}</td>
+    <td>${m.role.name}</td>
+    <td>${m.phone ?? "—"}</td>
+    <td>${m.email ?? "—"}</td>
+  </tr>`).join("");
+
+  const artistContactRows = artists.map((a) => {
+    const c = a.contacts[0];
+    return `<tr>
+      <td>${a.name}</td>
+      <td>${c?.name ?? "—"}</td>
+      <td>${c?.phone ?? a.contactPhone ?? a.agentPhone ?? "—"}</td>
+      <td>${a.timeSlots.map((ts) => fmtTime(ts.startTime)).join(", ") || "—"}</td>
+    </tr>`;
+  }).join("");
+
+  // Section 3: Community
+  const communityRows = communityContacts.map((c) => `<tr>
+    <td>${c.name}</td>
+    <td>${c.role}</td>
+    <td>${c.phone ?? "—"}</td>
+    <td>${c.notes ?? "—"}</td>
+  </tr>`).join("");
+
+  // Section 4: Vendors
+  const vendorRows = vendors.map((v) => {
+    const phone = v.contacts[0]?.phone ?? "—";
+    return `<tr><td>${v.name}</td><td>${v.category}</td><td>${phone}</td></tr>`;
+  }).join("");
+
+  return `
+    <h1>📋 תיאום מופע — ${festival.name}</h1>
+    <div class="meta">${fmtDate(festival.startDate)}–${fmtDate(festival.endDate)} · ${festival.location} · הופק ב-${fmtDate(new Date().toISOString())}</div>
+
+    <h2>לוז כללי</h2>
+    ${scheduleRows ? `<table><thead><tr><th>שעה</th><th>מחלקה</th><th>תיאור</th><th>אחראי</th></tr></thead><tbody>${scheduleRows}</tbody></table>` : "<p style='color:#9ca3af;font-size:12px'>אין משימות</p>"}
+
+    <h2>צוות הפסטיבל</h2>
+    <table><thead><tr><th>שם</th><th>תפקיד</th><th>טלפון</th><th>אימייל</th></tr></thead><tbody>${teamRows || "<tr><td colspan='4'>אין נתונים</td></tr>"}</tbody></table>
+
+    <h2>אמנים ואנשי קשר</h2>
+    <table><thead><tr><th>אמן</th><th>איש קשר</th><th>טלפון</th><th>שעת הופעה</th></tr></thead><tbody>${artistContactRows || "<tr><td colspan='4'>אין נתונים</td></tr>"}</tbody></table>
+
+    <h2>קהילה וגורמים חיצוניים</h2>
+    ${communityRows ? `<table><thead><tr><th>שם</th><th>תפקיד</th><th>טלפון</th><th>הערות</th></tr></thead><tbody>${communityRows}</tbody></table>` : "<p style='color:#9ca3af;font-size:12px'>אין גורמים חיצוניים</p>"}
+
+    <h2>ספקים</h2>
+    ${vendorRows ? `<table><thead><tr><th>שם</th><th>קטגוריה</th><th>טלפון</th></tr></thead><tbody>${vendorRows}</tbody></table>` : "<p style='color:#9ca3af;font-size:12px'>אין ספקים</p>"}
+  `;
+}
+
 // ─── Generate buttons section ──────────────────────────────────────────────────
 
 function GenerateSection({
@@ -328,14 +555,42 @@ function GenerateSection({
   artists,
   vendors,
   stages,
+  setupTasks,
+  communityContacts,
 }: {
   festival: Festival;
   teamMembers: TeamMember[];
   artists: Artist[];
   vendors: Vendor[];
   stages: Stage[];
+  setupTasks: SetupTask[];
+  communityContacts: CommunityContact[];
 }) {
   const docs = [
+    {
+      icon: "📋",
+      label: "תיאום מופע",
+      desc: "מסמך כולל לפסטיבל",
+      action: () => printDoc(buildShowCoordinationDoc(festival, setupTasks, teamMembers, artists, communityContacts, vendors, stages)),
+    },
+    {
+      icon: "🔧",
+      label: "לוז טכני כללי",
+      desc: `${setupTasks.length} משימות`,
+      action: () => printDoc(buildTechnicalScheduleDoc(festival, setupTasks)),
+    },
+    {
+      icon: "🎵",
+      label: "לוז הופעות ובאלנסים",
+      desc: `${stages.reduce((s, st) => s + st.timeSlots.length, 0)} תזמונים`,
+      action: () => printDoc(buildPerformanceScheduleDoc(festival, stages)),
+    },
+    {
+      icon: "👥",
+      label: "רשימות צוותים",
+      desc: `${artists.length} להקות`,
+      action: () => printDoc(buildCrewListsDoc(festival, artists)),
+    },
     {
       icon: "📋",
       label: "רשימת צוות",
@@ -370,7 +625,7 @@ function GenerateSection({
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
       <h2 className="font-semibold text-gray-800 mb-1">יצירת מסמכים</h2>
       <p className="text-xs text-gray-500 mb-5">לחץ על מסמך להדפסה / שמירה כ-PDF</p>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3">
         {docs.map((d) => (
           <button
             key={d.label}
@@ -617,6 +872,8 @@ export default function DocumentsClient({
   vendors,
   stages,
   festivalFiles,
+  setupTasks,
+  communityContacts,
   isAdmin,
   createFestivalFile,
   deleteFestivalFile,
@@ -672,6 +929,8 @@ export default function DocumentsClient({
         artists={artists}
         vendors={vendors}
         stages={stages}
+        setupTasks={setupTasks}
+        communityContacts={communityContacts}
       />
 
       <AllDocsSection

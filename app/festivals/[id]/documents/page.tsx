@@ -12,7 +12,7 @@ export default async function DocumentsPage({
 }) {
   const { id } = await params;
 
-  const [role, festival, teamMembers, artists, vendors, stages, festivalFiles] =
+  const [role, festival, teamMembers, artists, vendors, stages, festivalFiles, setupTasks, communityContacts] =
     await Promise.all([
       getRole(),
       prisma.festival.findUnique({ where: { id } }),
@@ -26,6 +26,7 @@ export default async function DocumentsPage({
         include: {
           files: { orderBy: { createdAt: "desc" } },
           vehicles: true,
+          contacts: true,
           timeSlots: {
             include: { stage: true },
             orderBy: { startTime: "asc" },
@@ -36,6 +37,7 @@ export default async function DocumentsPage({
       prisma.vendor.findMany({
         where: { festivalId: id },
         include: {
+          contacts: true,
           files: { orderBy: { createdAt: "desc" } },
           vehicles: true,
         },
@@ -56,6 +58,14 @@ export default async function DocumentsPage({
       prisma.festivalFile.findMany({
         where: { festivalId: id },
         orderBy: { createdAt: "desc" },
+      }),
+      prisma.festivalSetupTask.findMany({
+        where: { festivalId: id },
+        orderBy: [{ date: "asc" }, { time: "asc" }, { sortOrder: "asc" }],
+      }),
+      prisma.festivalCommunityContact.findMany({
+        where: { festivalId: id },
+        orderBy: { role: "asc" },
       }),
     ]);
 
@@ -102,6 +112,8 @@ export default async function DocumentsPage({
       vendors={serializedVendors}
       stages={serializedStages}
       festivalFiles={serializedFestivalFiles}
+      setupTasks={setupTasks}
+      communityContacts={communityContacts}
       isAdmin={role === "admin"}
       createFestivalFile={createFestivalFile}
       deleteFestivalFile={deleteFestivalFile}

@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import { createStage, deleteStage, createTimeSlot, deleteTimeSlot, updateTimeSlotStatus } from "@/app/actions";
+import { createStage, deleteStage, createTimeSlot, deleteTimeSlot, updateTimeSlotStatus, updateTimeSlot, createSetupTask, updateSetupTask, deleteSetupTask } from "@/app/actions";
 import ScheduleClient from "./ScheduleClient";
 import { getRole } from "@/lib/auth";
 
@@ -18,7 +18,7 @@ export default async function SchedulePage({
   if (!festival) notFound();
   const isAdmin = role === "admin";
 
-  const [stages, artists] = await Promise.all([
+  const [stages, artists, setupTasks] = await Promise.all([
     prisma.stage.findMany({
       where: { festivalId: id },
       include: {
@@ -32,6 +32,10 @@ export default async function SchedulePage({
     prisma.artist.findMany({
       where: { festivalId: id },
       orderBy: { name: "asc" },
+    }),
+    prisma.festivalSetupTask.findMany({
+      where: { festivalId: id },
+      orderBy: [{ date: "asc" }, { time: "asc" }, { sortOrder: "asc" }],
     }),
   ]);
 
@@ -54,11 +58,16 @@ export default async function SchedulePage({
       }))}
       artists={artists}
       isAdmin={isAdmin}
+      setupTasks={setupTasks}
       createStage={createStage}
       deleteStage={deleteStage}
       createTimeSlot={createTimeSlot}
       deleteTimeSlot={deleteTimeSlot}
       updateTimeSlotStatus={updateTimeSlotStatus}
+      updateTimeSlot={updateTimeSlot}
+      createSetupTask={createSetupTask}
+      updateSetupTask={updateSetupTask}
+      deleteSetupTask={deleteSetupTask}
     />
   );
 }
