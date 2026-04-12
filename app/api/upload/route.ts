@@ -1,7 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { put } from "@vercel/blob";
 import { getRole } from "@/lib/auth";
 
 const ALLOWED_TYPES = [
@@ -37,19 +36,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "הקובץ גדול מדי (מקסימום 10MB)" }, { status: 400 });
   }
 
-  const bytes = await file.arrayBuffer();
-  const buffer = Buffer.from(bytes);
-
   const rawFolder = new URL(req.url).searchParams.get("folder") ?? "vendors";
   const folder = rawFolder.replace(/[^a-z0-9_-]/gi, "") || "vendors";
 
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
   const filename = `${Date.now()}-${safeName}`;
-  const uploadDir = path.join(process.cwd(), "public", "uploads", folder);
-  await mkdir(uploadDir, { recursive: true });
-  const filePath = path.join(uploadDir, filename);
 
-  await writeFile(filePath, buffer);
+  const blob = await put(`${folder}/${filename}`, file, {
+    access: "public",
+    contentType: file.type,
+  });
 
-  return NextResponse.json({ url: `/uploads/${folder}/${filename}` });
+  return NextResponse.json({ url: blob.url });
 }
