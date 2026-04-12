@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev --webpack",
-    "build": "next build --webpack",
+    "build": "prisma generate && next build --webpack",
     "start": "next start"
   },
   "dependencies": {
@@ -17,7 +17,6 @@
     "@hookform/resolvers": "^5.2.2",
     "@neondatabase/serverless": "^1.0.2",
     "@prisma/adapter-neon": "^7.7.0",
-    "@prisma/adapter-pg": "^7.7.0",
     "@prisma/client": "^7.6.0",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
@@ -25,7 +24,6 @@
     "dotenv": "^17.4.1",
     "lucide-react": "^1.7.0",
     "next": "16.2.2",
-    "pg": "^8.20.0",
     "prisma": "^7.6.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
