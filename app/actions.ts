@@ -273,16 +273,82 @@ export async function createStage(formData: FormData) {
       name: formData.get("name") as string,
       capacity: parseInt(formData.get("capacity") as string) || null,
       location: (formData.get("location") as string) || null,
+      soundcheckStart: (formData.get("soundcheckStart") as string) || null,
+      soundcheckEnd: (formData.get("soundcheckEnd") as string) || null,
+      performancesStart: (formData.get("performancesStart") as string) || null,
+      performancesEnd: (formData.get("performancesEnd") as string) || null,
+      managerId: (formData.get("managerId") as string) || null,
     },
   });
 
   revalidatePath(`/festivals/${festivalId}/schedule`);
+  revalidatePath(`/festivals/${festivalId}/stages`);
+}
+
+export async function updateStage(id: string, formData: FormData) {
+  await requireAdmin();
+  const stage = await prisma.stage.findUniqueOrThrow({ where: { id } });
+
+  await prisma.stage.update({
+    where: { id },
+    data: {
+      name: formData.get("name") as string,
+      capacity: parseInt(formData.get("capacity") as string) || null,
+      location: (formData.get("location") as string) || null,
+      soundcheckStart: (formData.get("soundcheckStart") as string) || null,
+      soundcheckEnd: (formData.get("soundcheckEnd") as string) || null,
+      performancesStart: (formData.get("performancesStart") as string) || null,
+      performancesEnd: (formData.get("performancesEnd") as string) || null,
+      managerId: (formData.get("managerId") as string) || null,
+    },
+  });
+
+  revalidatePath(`/festivals/${stage.festivalId}/stages`);
+  revalidatePath(`/festivals/${stage.festivalId}/schedule`);
 }
 
 export async function deleteStage(id: string, festivalId: string) {
   await requireAdmin();
   await prisma.stage.delete({ where: { id } });
   revalidatePath(`/festivals/${festivalId}/schedule`);
+  revalidatePath(`/festivals/${festivalId}/stages`);
+}
+
+export async function createStageFile(
+  stageId: string,
+  festivalId: string,
+  name: string,
+  url: string,
+  isExternal: boolean,
+  fileType: string
+) {
+  await requireAdmin();
+  await prisma.stageFile.create({ data: { stageId, name, url, isExternal, fileType } });
+  revalidatePath(`/festivals/${festivalId}/stages`);
+}
+
+export async function deleteStageFile(id: string, stageId: string, festivalId: string) {
+  await requireAdmin();
+  await prisma.stageFile.delete({ where: { id } });
+  revalidatePath(`/festivals/${festivalId}/stages`);
+}
+
+export async function createFestivalFile(
+  festivalId: string,
+  name: string,
+  url: string,
+  isExternal: boolean,
+  fileType: string
+) {
+  await requireAdmin();
+  await prisma.festivalFile.create({ data: { festivalId, name, url, isExternal, fileType } });
+  revalidatePath(`/festivals/${festivalId}/documents`);
+}
+
+export async function deleteFestivalFile(id: string, festivalId: string) {
+  await requireAdmin();
+  await prisma.festivalFile.delete({ where: { id } });
+  revalidatePath(`/festivals/${festivalId}/documents`);
 }
 
 // ─── Time Slots ──────────────────────────────────────────────────────────────

@@ -27,17 +27,48 @@ model Festival {
   budgetItems      BudgetItem[]
   applications     TeamApplication[]
   vendors          Vendor[]
+  festivalFiles    FestivalFile[]
 }
 
 model Stage {
+  id                String      @id @default(cuid())
+  name              String
+  capacity          Int?
+  location          String?
+  soundcheckStart   String?
+  soundcheckEnd     String?
+  performancesStart String?
+  performancesEnd   String?
+  managerId         String?
+  manager           TeamMember? @relation(fields: [managerId], references: [id], onDelete: SetNull)
+  cadFileUrl        String?
+  festivalId        String
+  festival          Festival    @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+
+  timeSlots TimeSlot[]
+  files     StageFile[]
+}
+
+model StageFile {
   id         String   @id @default(cuid())
   name       String
-  capacity   Int?
-  location   String?
+  url        String
+  isExternal Boolean  @default(false)
+  fileType   String?
+  createdAt  DateTime @default(now())
+  stageId    String
+  stage      Stage    @relation(fields: [stageId], references: [id], onDelete: Cascade)
+}
+
+model FestivalFile {
+  id         String   @id @default(cuid())
+  name       String
+  url        String
+  isExternal Boolean  @default(false)
+  fileType   String?
+  createdAt  DateTime @default(now())
   festivalId String
   festival   Festival @relation(fields: [festivalId], references: [id], onDelete: Cascade)
-
-  timeSlots  TimeSlot[]
 }
 
 model Artist {
@@ -165,6 +196,7 @@ model TeamMember {
   notes      String?
   festivalId String
   festival   Festival       @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+  managedStages Stage[]
 }
 
 model BudgetItem {
@@ -209,7 +241,6 @@ model Vendor {
   payments    VendorPayment[]
   files       VendorFile[]
 }
-
 model VendorContact {
   id       String  @id @default(cuid())
   name     String
