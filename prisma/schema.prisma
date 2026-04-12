@@ -1,0 +1,270 @@
+// Festival Manager - Prisma Schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Festival {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  location    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  inviteToken String?  @unique
+
+  stages           Stage[]
+  artists          Artist[]
+  teamMembers      TeamMember[]
+  teamMemberRoles  TeamMemberRole[]
+  budgetItems      BudgetItem[]
+  applications     TeamApplication[]
+  vendors          Vendor[]
+}
+
+model Stage {
+  id         String   @id @default(cuid())
+  name       String
+  capacity   Int?
+  location   String?
+  festivalId String
+  festival   Festival @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+
+  timeSlots  TimeSlot[]
+}
+
+model Artist {
+  id                 String   @id @default(cuid())
+  name               String
+  genre              String?
+  bio                String?
+  contactEmail       String?
+  contactPhone       String?
+  setDuration        Int      @default(60)
+  soundcheckDuration Int      @default(30)
+  breakAfter         Int      @default(15)
+  festivalId         String
+  festival           Festival @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+
+  // פרופיל וסטטוס
+  profileImageUrl    String?
+  status             String   @default("confirmed")
+  privateNotes       String?
+
+  // סוכן / מנהל
+  agentName          String?
+  agentPhone         String?
+  agentEmail         String?
+  fee                Float?
+
+  // רשתות חברתיות
+  instagramUrl       String?
+  facebookUrl        String?
+  websiteUrl         String?
+  spotifyUrl         String?
+
+  // מפרט טכני — שדות מובנים
+  stageSize              String?
+  paSystemRequired       Boolean  @default(false)
+  monitorsCount          Int      @default(2)
+  microphonesCount       Int      @default(2)
+  djEquipmentRequired    Boolean  @default(false)
+  electricalRequirements String?
+  lightingNotes          String?
+  backlineNotes          String?
+  hospitalityRider       String?
+  technicalRiderNotes    String?
+  technicalRiderPdfUrl   String?
+
+  timeSlots          TimeSlot[]
+  files              ArtistFile[]
+  payments           ArtistPayment[]
+  contacts           ArtistContact[]
+  vehicles           ArtistVehicle[]
+}
+
+model ArtistContact {
+  id       String  @id @default(cuid())
+  name     String
+  role     String?
+  phone    String?
+  email    String?
+  artistId String
+  artist   Artist  @relation(fields: [artistId], references: [id], onDelete: Cascade)
+}
+
+model ArtistVehicle {
+  id          String  @id @default(cuid())
+  plateNumber String
+  vehicleType String?
+  arrivalTime String?
+  artistId    String
+  artist      Artist  @relation(fields: [artistId], references: [id], onDelete: Cascade)
+}
+
+model ArtistFile {
+  id         String   @id @default(cuid())
+  name       String
+  url        String
+  isExternal Boolean  @default(false)
+  fileType   String?
+  createdAt  DateTime @default(now())
+  artistId   String
+  artist     Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
+}
+
+model ArtistPayment {
+  id           String    @id @default(cuid())
+  description  String
+  amount       Float
+  dueDate      DateTime?
+  isPaid       Boolean   @default(false)
+  budgetItemId String?   @unique
+  artistId     String
+  artist       Artist    @relation(fields: [artistId], references: [id], onDelete: Cascade)
+}
+
+model TimeSlot {
+  id        String         @id @default(cuid())
+  startTime DateTime
+  endTime   DateTime
+  status    TimeSlotStatus @default(SCHEDULED)
+  notes     String?
+
+  stageId   String
+  stage     Stage  @relation(fields: [stageId], references: [id], onDelete: Cascade)
+
+  artistId  String?
+  artist    Artist? @relation(fields: [artistId], references: [id], onDelete: SetNull)
+}
+
+model TeamMemberRole {
+  id         String       @id @default(cuid())
+  name       String
+  festivalId String
+  festival   Festival     @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+  members    TeamMember[]
+}
+
+model TeamMember {
+  id         String         @id @default(cuid())
+  firstName  String
+  lastName   String
+  roleId     String
+  role       TeamMemberRole @relation(fields: [roleId], references: [id])
+  email      String?
+  phone      String?
+  carNumber  String?
+  notes      String?
+  festivalId String
+  festival   Festival       @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+}
+
+model BudgetItem {
+  id          String     @id @default(cuid())
+  description String
+  amount      Int
+  type        BudgetType
+  category    String?
+  date        DateTime   @default(now())
+  isPaid      Boolean    @default(false)
+  vendor      String?
+  notes       String?
+  festivalId  String
+  festival    Festival   @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+}
+
+model TeamApplication {
+  id         String   @id @default(cuid())
+  firstName  String
+  lastName   String
+  email      String?
+  phone      String?
+  carNumber  String?
+  notes      String?
+  status     String   @default("pending")
+  createdAt  DateTime @default(now())
+  festivalId String
+  festival   Festival @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+}
+
+model Vendor {
+  id          String          @id @default(cuid())
+  name        String
+  category    String
+  notes       String?
+  vendorToken String          @unique @default(uuid())
+  createdAt   DateTime        @default(now())
+  festivalId  String
+  festival    Festival        @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+  contacts    VendorContact[]
+  vehicles    VendorVehicle[]
+  payments    VendorPayment[]
+  files       VendorFile[]
+}
+
+model VendorContact {
+  id       String  @id @default(cuid())
+  name     String
+  role     String?
+  phone    String?
+  email    String?
+  vendorId String
+  vendor   Vendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+model VendorVehicle {
+  id          String  @id @default(cuid())
+  plateNumber String
+  vehicleType String?
+  arrivalTime String?
+  vendorId    String
+  vendor      Vendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+model VendorPayment {
+  id           String    @id @default(cuid())
+  description  String
+  amount       Float
+  dueDate      DateTime?
+  isPaid       Boolean   @default(false)
+  budgetItemId String?   @unique
+  vendorId     String
+  vendor       Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+model VendorFile {
+  id         String   @id @default(cuid())
+  name       String
+  url        String
+  isExternal Boolean  @default(false)
+  fileType   String?
+  createdAt  DateTime @default(now())
+  vendorId   String
+  vendor     Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+model AppSettings {
+  id             String  @id @default("global")
+  adminPassword  String
+  viewerPassword String
+  showBudget     Boolean @default(true)
+}
+
+enum TimeSlotStatus {
+  SCHEDULED
+  CANCELLED
+  COMPLETED
+}
+
+enum BudgetType {
+  INCOME
+  EXPENSE
+}
