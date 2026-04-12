@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { prisma } from "@/lib/prisma";
 import { submitVendorForm } from "@/app/actions";
 import VendorForm from "./VendorForm";

@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { prisma } from "@/lib/prisma";
 import { createFestival, deleteFestival, logout } from "@/app/actions";
 import { formatDate } from "@/lib/utils";

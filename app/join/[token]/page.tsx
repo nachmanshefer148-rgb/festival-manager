@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { prisma } from "@/lib/prisma";
 import { submitTeamApplication } from "@/app/actions";
 import JoinForm from "./JoinForm";

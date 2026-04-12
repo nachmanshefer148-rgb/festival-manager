@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -104,4 +105,3 @@ export default async function FestivalLayout({
     </div>
   );
 }
-
