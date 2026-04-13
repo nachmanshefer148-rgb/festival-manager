@@ -44,16 +44,18 @@ export default async function SchedulePage({
       festivalId={id}
       festival={{ startDate: festival.startDate.toISOString(), endDate: festival.endDate.toISOString() }}
       stages={stages.map((s) => ({
-        ...s,
+        id: s.id,
+        name: s.name,
+        capacity: s.capacity,
+        soundcheckStart: s.soundcheckStart,
+        soundcheckEnd: s.soundcheckEnd,
+        performancesStart: s.performancesStart,
+        performancesEnd: s.performancesEnd,
         timeSlots: s.timeSlots.map((ts) => ({
           ...ts,
           startTime: ts.startTime.toISOString(),
           endTime: ts.endTime.toISOString(),
-          artist: ts.artist
-            ? {
-                ...ts.artist,
-              }
-            : null,
+          artist: ts.artist ? { ...ts.artist } : null,
         })),
       }))}
       artists={artists}

@@ -170,6 +170,7 @@ model TimeSlot {
   startTime      DateTime
   endTime        DateTime
   status         TimeSlotStatus @default(SCHEDULED)
+  type           TimeSlotType   @default(PERFORMANCE)
   notes          String?
   technicianName String?
 
@@ -320,6 +321,11 @@ enum TimeSlotStatus {
   SCHEDULED
   CANCELLED
   COMPLETED
+}
+
+enum TimeSlotType {
+  SOUNDCHECK
+  PERFORMANCE
 }
 
 enum BudgetType {
