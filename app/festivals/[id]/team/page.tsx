@@ -2,7 +2,6 @@ export const dynamic = "force-dynamic";
 import {
   approveTeamApplication,
   createCommunityContact,
-  generateFestivalViewerToken,
   createTeamMember,
   createTeamRole,
   deleteCommunityContact,
@@ -10,7 +9,6 @@ import {
   deleteTeamRole,
   generateInviteToken,
   rejectTeamApplication,
-  saveFestivalViewerAccess,
   updateCommunityContact,
   updateTeamMember,
 } from "@/app/actions";
@@ -54,10 +52,6 @@ export default async function TeamPage({
       roles={roles}
       isAdmin={isAdmin}
       inviteToken={festival.inviteToken}
-      viewerToken={festival.viewerToken}
-      viewerAccessEnabled={festival.viewerAccessEnabled}
-      viewerShowBudget={festival.viewerShowBudget}
-      viewerShowDocuments={festival.viewerShowDocuments}
       applications={applications}
       createTeamMember={createTeamMember}
       deleteTeamMember={deleteTeamMember}
@@ -65,8 +59,6 @@ export default async function TeamPage({
       createTeamRole={createTeamRole}
       deleteTeamRole={deleteTeamRole}
       generateInviteToken={generateInviteToken}
-      generateFestivalViewerToken={generateFestivalViewerToken}
-      saveFestivalViewerAccess={saveFestivalViewerAccess}
       approveTeamApplication={approveTeamApplication}
       rejectTeamApplication={rejectTeamApplication}
       communityContacts={communityContacts}

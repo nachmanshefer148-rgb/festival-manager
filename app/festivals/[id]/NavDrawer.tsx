@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import FestivalViewerShareButton from "./FestivalViewerShareButton";
 
 interface NavItem {
   href: string;
@@ -13,9 +14,23 @@ interface NavItem {
 export default function NavDrawer({
   festivalId,
   nav,
+  isAdmin = false,
+  viewerToken = null,
+  viewerAccessEnabled = false,
+  viewerShowBudget = false,
+  viewerShowDocuments = false,
+  generateFestivalViewerToken,
+  saveFestivalViewerAccess,
 }: {
   festivalId: string;
   nav: NavItem[];
+  isAdmin?: boolean;
+  viewerToken?: string | null;
+  viewerAccessEnabled?: boolean;
+  viewerShowBudget?: boolean;
+  viewerShowDocuments?: boolean;
+  generateFestivalViewerToken?: (festivalId: string) => Promise<string>;
+  saveFestivalViewerAccess?: (festivalId: string, formData: FormData) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
@@ -93,6 +108,22 @@ export default function NavDrawer({
             );
           })}
         </nav>
+
+        {isAdmin && generateFestivalViewerToken && saveFestivalViewerAccess && (
+          <div className="border-t border-gray-200 p-3">
+            <FestivalViewerShareButton
+              compact
+              festivalId={festivalId}
+              viewerToken={viewerToken}
+              viewerAccessEnabled={viewerAccessEnabled}
+              viewerShowBudget={viewerShowBudget}
+              viewerShowDocuments={viewerShowDocuments}
+              generateFestivalViewerToken={generateFestivalViewerToken}
+              saveFestivalViewerAccess={saveFestivalViewerAccess}
+              onDone={() => setOpen(false)}
+            />
+          </div>
+        )}
       </div>
     </>
   );

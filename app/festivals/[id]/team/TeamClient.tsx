@@ -54,10 +54,6 @@ interface Props {
   roles: TeamMemberRole[];
   isAdmin: boolean;
   inviteToken: string | null;
-  viewerToken: string | null;
-  viewerAccessEnabled: boolean;
-  viewerShowBudget: boolean;
-  viewerShowDocuments: boolean;
   applications: TeamApplication[];
   createTeamMember: (formData: FormData) => Promise<void>;
   deleteTeamMember: (id: string, festivalId: string) => Promise<void>;
@@ -65,8 +61,6 @@ interface Props {
   createTeamRole: (formData: FormData) => Promise<void>;
   deleteTeamRole: (id: string, festivalId: string) => Promise<void>;
   generateInviteToken: (festivalId: string) => Promise<string>;
-  generateFestivalViewerToken: (festivalId: string) => Promise<string>;
-  saveFestivalViewerAccess: (festivalId: string, formData: FormData) => Promise<void>;
   approveTeamApplication: (applicationId: string, roleId: string) => Promise<void>;
   rejectTeamApplication: (applicationId: string) => Promise<void>;
   communityContacts: CommunityContact[];
@@ -81,10 +75,6 @@ export default function TeamClient({
   roles,
   isAdmin,
   inviteToken: initialInviteToken,
-  viewerToken: initialViewerToken,
-  viewerAccessEnabled,
-  viewerShowBudget,
-  viewerShowDocuments,
   applications,
   createTeamMember,
   deleteTeamMember,
@@ -92,8 +82,6 @@ export default function TeamClient({
   createTeamRole,
   deleteTeamRole,
   generateInviteToken,
-  generateFestivalViewerToken,
-  saveFestivalViewerAccess,
   approveTeamApplication,
   rejectTeamApplication,
   communityContacts,
@@ -109,9 +97,7 @@ export default function TeamClient({
   const [showRoleManager, setShowRoleManager] = useState(false);
   const [editMember, setEditMember] = useState<TeamMember | null>(null);
   const [inviteToken, setInviteToken] = useState<string | null>(initialInviteToken);
-  const [viewerToken, setViewerToken] = useState<string | null>(initialViewerToken);
   const [copied, setCopied] = useState(false);
-  const [viewerCopied, setViewerCopied] = useState(false);
   const [approvingApplication, setApprovingApplication] = useState<TeamApplication | null>(null);
   const [approveRoleId, setApproveRoleId] = useState<string>("");
   const [showCommunityForm, setShowCommunityForm] = useState(false);
@@ -167,25 +153,6 @@ export default function TeamClient({
     setApproveRoleId("");
   };
 
-  const handleCopyViewerLink = async () => {
-    let token = viewerToken;
-    if (!token) {
-      token = await generateFestivalViewerToken(festivalId);
-      setViewerToken(token);
-    }
-    const url = `${window.location.origin}/view/${token}`;
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch {
-      const ta = document.createElement("textarea");
-      ta.value = url; ta.style.position = "fixed"; ta.style.opacity = "0";
-      document.body.appendChild(ta); ta.select(); document.execCommand("copy");
-      document.body.removeChild(ta);
-    }
-    setViewerCopied(true);
-    setTimeout(() => setViewerCopied(false), 2000);
-  };
-
   return (
     <div>
       {/* Header */}
@@ -221,56 +188,6 @@ export default function TeamClient({
           </div>
         )}
       </div>
-
-      {isAdmin && (
-        <div className="mb-6 rounded-2xl border border-violet-200 bg-violet-50 p-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="space-y-1">
-              <h2 className="text-sm font-semibold text-violet-900">קישור צפייה מוגבלת לפסטיבל</h2>
-              <p className="text-sm text-violet-700">
-                אפשר לאפשר צפייה חיצונית בפסטיבל הזה בלבד, בלי חשבון ובלי גישה לשאר המערכת.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleCopyViewerLink}
-              className="rounded-xl border border-violet-200 bg-white px-4 py-2 text-sm font-medium text-violet-700 transition-colors hover:bg-violet-100"
-            >
-              {viewerCopied ? "✓ לינק צפייה הועתק" : "🔗 העתק לינק צפייה"}
-            </button>
-          </div>
-
-          <form action={async (fd) => { await saveFestivalViewerAccess(festivalId, fd); }} className="mt-4 space-y-3">
-            <label className="flex items-center gap-3 rounded-xl bg-white px-3 py-2 text-sm text-gray-700">
-              <input type="checkbox" name="viewerAccessEnabled" defaultChecked={viewerAccessEnabled} className="h-4 w-4" />
-              אפשר צפייה מוגבלת בפסטיבל הזה
-            </label>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="flex items-center gap-3 rounded-xl bg-white px-3 py-2 text-sm text-gray-700">
-                <input type="checkbox" name="viewerShowBudget" defaultChecked={viewerShowBudget} className="h-4 w-4" />
-                הצג גם תקציב
-              </label>
-              <label className="flex items-center gap-3 rounded-xl bg-white px-3 py-2 text-sm text-gray-700">
-                <input type="checkbox" name="viewerShowDocuments" defaultChecked={viewerShowDocuments} className="h-4 w-4" />
-                הצג גם מסמכים
-              </label>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="submit"
-                className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700"
-              >
-                שמור הגדרות צפייה
-              </button>
-              {viewerToken && (
-                <span className="text-xs text-violet-700">
-                  לינק פעיל: <span dir="ltr">/view/{viewerToken}</span>
-                </span>
-              )}
-            </div>
-          </form>
-        </div>
-      )}
 
       {/* Pending Applications (admin only) */}
       {isAdmin && applications.length > 0 && (

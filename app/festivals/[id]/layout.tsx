@@ -1,10 +1,15 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import { logout } from "@/app/actions";
+import {
+  generateFestivalViewerToken,
+  logout,
+  saveFestivalViewerAccess,
+} from "@/app/actions";
 import { requireFestivalAccessPage } from "@/lib/access";
 import { formatDate } from "@/lib/utils";
 import NavDrawer from "./NavDrawer";
 import { NavLink } from "./NavLink";
+import FestivalViewerShareButton from "./FestivalViewerShareButton";
 
 export default async function FestivalLayout({
   children,
@@ -32,7 +37,17 @@ export default async function FestivalLayout({
     <div className="min-h-screen flex flex-col">
       <header className="bg-violet-700 text-white px-4 sm:px-6 py-3 flex items-center justify-between shadow-md shrink-0">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-          <NavDrawer festivalId={id} nav={nav} />
+          <NavDrawer
+            festivalId={id}
+            nav={nav}
+            isAdmin={isAdmin}
+            viewerToken={festival.viewerToken}
+            viewerAccessEnabled={festival.viewerAccessEnabled}
+            viewerShowBudget={festival.viewerShowBudget}
+            viewerShowDocuments={festival.viewerShowDocuments}
+            generateFestivalViewerToken={generateFestivalViewerToken}
+            saveFestivalViewerAccess={saveFestivalViewerAccess}
+          />
           <Link href="/" className="text-violet-200 hover:text-white transition-colors text-sm hidden sm:block shrink-0">
             ← כל הפסטיבלים
           </Link>
@@ -63,10 +78,21 @@ export default async function FestivalLayout({
       </header>
 
       <div className="flex flex-1 min-h-0">
-        <nav className="hidden lg:flex w-48 bg-white border-l border-gray-200 flex-col py-4 shadow-sm shrink-0">
+        <nav className="hidden lg:flex w-56 flex-col bg-white border-l border-gray-200 py-4 shadow-sm shrink-0">
           {nav.map((item) => (
             <NavLink key={item.href} festivalId={id} href={item.href} icon={item.icon} label={item.label} />
           ))}
+          {isAdmin && (
+            <FestivalViewerShareButton
+              festivalId={id}
+              viewerToken={festival.viewerToken}
+              viewerAccessEnabled={festival.viewerAccessEnabled}
+              viewerShowBudget={festival.viewerShowBudget}
+              viewerShowDocuments={festival.viewerShowDocuments}
+              generateFestivalViewerToken={generateFestivalViewerToken}
+              saveFestivalViewerAccess={saveFestivalViewerAccess}
+            />
+          )}
         </nav>
 
         <main className="flex-1 overflow-auto bg-gray-50 p-4 sm:p-6">{children}</main>
