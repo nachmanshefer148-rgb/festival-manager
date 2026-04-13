@@ -1,9 +1,8 @@
 export const dynamic = 'force-dynamic';
 import { prisma } from "@/lib/prisma";
-import { createFestival, deleteFestival, logout } from "@/app/actions";
-import { formatDate } from "@/lib/utils";
+import { createFestival, deleteFestival, updateFestival, logout } from "@/app/actions";
 import Link from "next/link";
-import DeleteButton from "@/app/components/DeleteButton";
+import FestivalList from "./FestivalList";
 import { getRole } from "@/lib/auth";
 
 export default async function Home() {
@@ -48,37 +47,12 @@ export default async function Home() {
           {/* Festival List */}
           <div className={isAdmin ? "lg:col-span-2" : "lg:col-span-3"}>
             <h2 className="text-xl font-semibold text-gray-800 mb-4">הפסטיבלים שלך</h2>
-            {festivals.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-12 text-center text-gray-400">
-                <div className="text-5xl mb-3">🎪</div>
-                <p className="text-lg font-medium">עדיין אין פסטיבלים</p>
-                {isAdmin && <p className="text-sm mt-1">צור פסטיבל חדש כדי להתחיל</p>}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {festivals.map((f) => (
-                  <div key={f.id} className="bg-white rounded-2xl border border-gray-200 p-5 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
-                    <Link href={`/festivals/${f.id}`} className="flex-1">
-                      <h3 className="font-semibold text-gray-900 text-lg">{f.name}</h3>
-                      <div className="text-sm text-gray-500 mt-1 flex gap-4">
-                        <span>📍 {f.location}</span>
-                        <span>📅 {formatDate(f.startDate)} – {formatDate(f.endDate)}</span>
-                      </div>
-                    </Link>
-                    {isAdmin && (
-                      <DeleteButton
-                        action={deleteFestival.bind(null, f.id)}
-                        confirm={`למחוק את הפסטיבל "${f.name}"?`}
-                        className="text-gray-400 hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-red-50 mr-2"
-                      />
-                    )}
-                    <Link href={`/festivals/${f.id}`} className="bg-violet-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-violet-700 transition-colors">
-                      פתח
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            )}
+            <FestivalList
+              festivals={festivals}
+              isAdmin={isAdmin}
+              deleteFestival={deleteFestival}
+              updateFestival={updateFestival}
+            />
           </div>
 
           {/* Create Festival Form — admin only */}

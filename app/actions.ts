@@ -76,6 +76,29 @@ export async function createFestival(formData: FormData) {
   redirect(`/festivals/${festival.id}`);
 }
 
+export async function updateFestival(id: string, formData: FormData) {
+  await requireAdmin();
+  const name = formData.get("name") as string;
+  const description = formData.get("description") as string;
+  const location = formData.get("location") as string;
+  const startDate = formData.get("startDate") as string;
+  const endDate = formData.get("endDate") as string;
+
+  await prisma.festival.update({
+    where: { id },
+    data: {
+      name,
+      description: description || null,
+      location,
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+    },
+  });
+
+  revalidatePath("/");
+  revalidatePath(`/festivals/${id}`);
+}
+
 export async function deleteFestival(id: string) {
   await requireAdmin();
   await prisma.festival.delete({ where: { id } });
