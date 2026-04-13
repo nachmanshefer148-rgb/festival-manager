@@ -9,7 +9,11 @@ export type FestivalViewerPermissions = {
   festivalId: string;
   showBudget: boolean;
   showDocuments: boolean;
+  iat: number; // issued-at unix seconds
 };
+
+const GUEST_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
+const GUEST_COOKIE_TYPE_PREFIX = "guest-v1:";
 
 const secretFromEnv = process.env.SESSION_SECRET;
 
@@ -50,8 +54,9 @@ export function signSession(userId: string): string {
   return `${userId}.${signValue(userId)}`;
 }
 
-export function signGuestSession(payload: FestivalViewerPermissions): string {
-  const encodedPayload = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+export function signGuestSession(payload: Omit<FestivalViewerPermissions, "iat">): string {
+  const full: FestivalViewerPermissions = { ...payload, iat: Math.floor(Date.now() / 1000) };
+  const encodedPayload = Buffer.from(GUEST_COOKIE_TYPE_PREFIX + JSON.stringify(full), "utf8").toString("base64url");
   return `${encodedPayload}.${signValue(encodedPayload)}`;
 }
 
@@ -76,12 +81,19 @@ function parseGuestSession(cookieValue?: string): FestivalViewerPermissions | nu
   }
 
   try {
-    const parsed = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8")) as FestivalViewerPermissions;
+    const raw = Buffer.from(encodedPayload, "base64url").toString("utf8");
+    if (!raw.startsWith(GUEST_COOKIE_TYPE_PREFIX)) return null;
+    const parsed = JSON.parse(raw.slice(GUEST_COOKIE_TYPE_PREFIX.length)) as FestivalViewerPermissions;
     if (!parsed?.festivalId) return null;
+    // Validate iat — reject cookies older than max age
+    if (typeof parsed.iat !== "number" || Math.floor(Date.now() / 1000) - parsed.iat > GUEST_COOKIE_MAX_AGE_SECONDS) {
+      return null;
+    }
     return {
       festivalId: parsed.festivalId,
       showBudget: Boolean(parsed.showBudget),
       showDocuments: Boolean(parsed.showDocuments),
+      iat: parsed.iat,
     };
   } catch {
     return null;
@@ -145,7 +157,7 @@ export async function setSessionCookie(userId: string) {
   });
 }
 
-export async function setGuestSessionCookie(payload: FestivalViewerPermissions) {
+export async function setGuestSessionCookie(payload: Omit<FestivalViewerPermissions, "iat">) {
   const jar = await cookies();
   jar.set(GUEST_SESSION_COOKIE, signGuestSession(payload), {
     httpOnly: true,

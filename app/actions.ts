@@ -1100,8 +1100,8 @@ export async function saveFestivalViewerAccess(festivalId: string, formData: For
 }
 
 export async function generateFestivalViewerToken(festivalId: string) {
-  const festival = await requireOwnedFestival(festivalId);
-  const token = festival.viewerToken ?? randomUUID();
+  await requireOwnedFestival(festivalId);
+  const token = randomUUID();
 
   await prisma.festival.update({
     where: { id: festivalId },

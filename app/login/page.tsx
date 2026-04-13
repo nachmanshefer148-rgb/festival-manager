@@ -4,14 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, setSessionCookie } from "@/lib/auth";
-
-function isConfiguredSuperAdmin(email: string) {
-  return (process.env.SUPER_ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean)
-    .includes(email);
-}
+import { isConfiguredSuperAdmin } from "@/lib/super-admin";
 
 export default async function LoginPage({
   searchParams,
