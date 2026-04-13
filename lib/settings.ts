@@ -4,5 +4,5 @@ import { prisma } from "@/lib/prisma";
 export const getAppSettings = unstable_cache(
   () => prisma.appSettings.findUnique({ where: { id: "global" } }),
   ["app-settings"],
-  { revalidate: 60 }
+  { revalidate: 60, tags: ["app-settings"] }
 );

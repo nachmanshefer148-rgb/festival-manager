@@ -13,8 +13,13 @@ export default async function SetupPage() {
     const existing = await prisma.appSettings.findUnique({ where: { id: "global" } });
     if (existing) redirect("/");
 
-    const adminPassword = formData.get("adminPassword") as string;
-    const viewerPassword = formData.get("viewerPassword") as string;
+    const rawAdminPassword = formData.get("adminPassword");
+    const rawViewerPassword = formData.get("viewerPassword");
+    const adminPassword = typeof rawAdminPassword === "string" ? rawAdminPassword.trim() : "";
+    const viewerPassword = typeof rawViewerPassword === "string" ? rawViewerPassword.trim() : "";
+    if (adminPassword.length < 4 || viewerPassword.length < 4) {
+      throw new Error("Passwords must be at least 4 characters long");
+    }
 
     const [adminHash, viewerHash] = await Promise.all([
       bcrypt.hash(adminPassword, 10),

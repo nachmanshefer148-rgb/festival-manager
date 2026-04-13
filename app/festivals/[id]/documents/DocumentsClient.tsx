@@ -706,7 +706,7 @@ function AllDocsSection({
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/upload?folder=festival", { method: "POST", body: fd });
+      const res = await fetch("/api/upload?folder=festival-files", { method: "POST", body: fd });
       const data = await res.json();
       if (data.url) {
         const ext = file.name.split(".").pop()?.toLowerCase() ?? "";

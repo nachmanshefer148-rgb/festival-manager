@@ -94,6 +94,7 @@ interface Props {
   festivalId: string;
   artist: Artist;
   isAdmin: boolean;
+  canAccessFiles?: boolean;
   showFinancials?: boolean;
   updateArtist: (id: string, fd: FormData) => Promise<void>;
   updateArtistImage: (artistId: string, imageUrl: string) => Promise<void>;
@@ -162,6 +163,7 @@ export default function ArtistDetailClient({
   festivalId,
   artist,
   isAdmin,
+  canAccessFiles = true,
   showFinancials = true,
   updateArtist,
   updateArtistImage,
@@ -203,7 +205,7 @@ export default function ArtistDetailClient({
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/upload?folder=artists", { method: "POST", body: fd });
+      const res = await fetch("/api/upload?folder=artist-images", { method: "POST", body: fd });
       const data = await res.json();
       if (data.url) {
         setPendingImageUrl(data.url);
@@ -225,7 +227,7 @@ export default function ArtistDetailClient({
     { key: "vehicles", label: `רכבים${artist.vehicles.length > 0 ? ` (${artist.vehicles.length})` : ""}` },
     { key: "rider", label: "מפרט טכני" },
     { key: "schedule", label: "לוח זמנים" },
-    { key: "files", label: `קבצים${artist.files.length > 0 ? ` (${artist.files.length})` : ""}` },
+    ...(canAccessFiles ? [{ key: "files" as const, label: `קבצים${artist.files.length > 0 ? ` (${artist.files.length})` : ""}` }] : []),
     ...(showFinancials ? [{ key: "payments" as const, label: `תשלום${artist.payments.length > 0 ? ` (${artist.payments.length})` : ""}` }] : []),
   ];
 
@@ -385,6 +387,7 @@ export default function ArtistDetailClient({
           <RiderTab
             artist={artist}
             isAdmin={isAdmin}
+            canAccessFiles={canAccessFiles}
             festivalId={festivalId}
             updateArtist={updateArtist}
           />
@@ -392,7 +395,7 @@ export default function ArtistDetailClient({
         {activeTab === "schedule" && (
           <ScheduleTab slots={artist.timeSlots} festivalId={festivalId} />
         )}
-        {activeTab === "files" && (
+        {canAccessFiles && activeTab === "files" && (
           <FilesTab
             files={artist.files}
             artistId={artist.id}
@@ -822,11 +825,13 @@ function InfoTab({ artist, isAdmin, showFinancials = true }: { artist: Artist; i
 function RiderTab({
   artist,
   isAdmin,
+  canAccessFiles,
   festivalId,
   updateArtist,
 }: {
   artist: Artist;
   isAdmin: boolean;
+  canAccessFiles: boolean;
   festivalId: string;
   updateArtist: (id: string, fd: FormData) => Promise<void>;
 }) {
@@ -840,7 +845,7 @@ function RiderTab({
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/upload?folder=artists", { method: "POST", body: fd });
+      const res = await fetch("/api/upload?folder=artist-files", { method: "POST", body: fd });
       const data = await res.json();
       if (data.url) setPdfUrl(data.url);
     } finally {
@@ -867,7 +872,7 @@ function RiderTab({
             {artist.lightingNotes && <FieldBlock label="תאורה" value={artist.lightingNotes} />}
             {artist.hospitalityRider && <FieldBlock label="הוספיטליטי" value={artist.hospitalityRider} />}
             {artist.technicalRiderNotes && <FieldBlock label="הערות כלליות" value={artist.technicalRiderNotes} />}
-            {pdfUrl && (
+            {canAccessFiles && pdfUrl && (
               <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-violet-600 hover:underline">
                 📄 קובץ מפרט טכני
               </a>
@@ -1068,7 +1073,7 @@ function FilesTab({
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/upload?folder=artists", { method: "POST", body: fd });
+      const res = await fetch("/api/upload?folder=artist-files", { method: "POST", body: fd });
       const data = await res.json();
       if (data.url) {
         const ext = file.name.split(".").pop()?.toLowerCase() ?? "";

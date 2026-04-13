@@ -12,6 +12,42 @@ async function requireAdmin() {
   if (role !== "admin") throw new Error("אין הרשאה");
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function readString(formData: FormData, key: string): string {
+  const value = formData.get(key);
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function requireString(formData: FormData, key: string, label: string, maxLength = 200): string {
+  const value = readString(formData, key);
+  if (!value) throw new Error(`${label} הוא שדה חובה`);
+  if (value.length > maxLength) throw new Error(`${label} ארוך מדי`);
+  return value;
+}
+
+function optionalString(value: unknown, maxLength = 1000): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.slice(0, maxLength);
+}
+
+function optionalEmail(value: unknown): string | null {
+  const email = optionalString(value, 320);
+  if (!email) return null;
+  const normalized = email.toLowerCase();
+  if (!EMAIL_RE.test(normalized)) throw new Error("כתובת האימייל לא תקינה");
+  return normalized;
+}
+
+function parseAmount(value: unknown, label: string): number {
+  if (typeof value !== "string") throw new Error(`${label} חייב להיות מספר`);
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount < 0) throw new Error(`${label} חייב להיות מספר תקין`);
+  return amount;
+}
+
 export async function logout() {
   await clearSessionCookie();
   redirect("/");
@@ -217,31 +253,33 @@ export async function deleteArtistFile(id: string, artistId: string, festivalId:
 export async function createArtistPayment(artistId: string, festivalId: string, formData: FormData) {
   await requireAdmin();
   const artist = await prisma.artist.findUniqueOrThrow({ where: { id: artistId } });
-  const amount = parseFloat(formData.get("amount") as string);
-  const description = formData.get("description") as string;
-  const dueDateStr = formData.get("dueDate") as string;
+  const amount = parseAmount(formData.get("amount"), "סכום");
+  const description = requireString(formData, "description", "תיאור");
+  const dueDateStr = readString(formData, "dueDate");
 
-  const budgetItem = await prisma.budgetItem.create({
-    data: {
-      festivalId,
-      description: `${artist.name} — ${description}`,
-      amount: Math.round(amount),
-      type: "EXPENSE",
-      category: "אמנים",
-      isPaid: false,
-      date: dueDateStr ? new Date(dueDateStr) : new Date(),
-    },
-  });
+  await prisma.$transaction(async (tx) => {
+    const budgetItem = await tx.budgetItem.create({
+      data: {
+        festivalId,
+        description: `${artist.name} — ${description}`,
+        amount: Math.round(amount),
+        type: "EXPENSE",
+        category: "אמנים",
+        isPaid: false,
+        date: dueDateStr ? new Date(dueDateStr) : new Date(),
+      },
+    });
 
-  await prisma.artistPayment.create({
-    data: {
-      artistId,
-      description,
-      amount,
-      dueDate: dueDateStr ? new Date(dueDateStr) : null,
-      isPaid: false,
-      budgetItemId: budgetItem.id,
-    },
+    await tx.artistPayment.create({
+      data: {
+        artistId,
+        description,
+        amount,
+        dueDate: dueDateStr ? new Date(dueDateStr) : null,
+        isPaid: false,
+        budgetItemId: budgetItem.id,
+      },
+    });
   });
 
   revalidatePath(`/festivals/${festivalId}/artists/${artistId}`);
@@ -253,11 +291,13 @@ export async function toggleArtistPayment(id: string, artistId: string, festival
   const payment = await prisma.artistPayment.findUniqueOrThrow({ where: { id } });
   const newPaid = !payment.isPaid;
 
-  await prisma.artistPayment.update({ where: { id }, data: { isPaid: newPaid } });
+  await prisma.$transaction(async (tx) => {
+    await tx.artistPayment.update({ where: { id }, data: { isPaid: newPaid } });
 
-  if (payment.budgetItemId) {
-    await prisma.budgetItem.update({ where: { id: payment.budgetItemId }, data: { isPaid: newPaid } });
-  }
+    if (payment.budgetItemId) {
+      await tx.budgetItem.update({ where: { id: payment.budgetItemId }, data: { isPaid: newPaid } });
+    }
+  });
 
   revalidatePath(`/festivals/${festivalId}/artists/${artistId}`);
   revalidatePath(`/festivals/${festivalId}/budget`);
@@ -267,11 +307,13 @@ export async function deleteArtistPayment(id: string, artistId: string, festival
   await requireAdmin();
   const payment = await prisma.artistPayment.findUniqueOrThrow({ where: { id } });
 
-  if (payment.budgetItemId) {
-    await prisma.budgetItem.delete({ where: { id: payment.budgetItemId } });
-  }
+  await prisma.$transaction(async (tx) => {
+    if (payment.budgetItemId) {
+      await tx.budgetItem.delete({ where: { id: payment.budgetItemId } });
+    }
 
-  await prisma.artistPayment.delete({ where: { id } });
+    await tx.artistPayment.delete({ where: { id } });
+  });
 
   revalidatePath(`/festivals/${festivalId}/artists/${artistId}`);
   revalidatePath(`/festivals/${festivalId}/budget`);
@@ -669,12 +711,12 @@ export async function submitTeamApplication(token: string, formData: FormData) {
   await prisma.teamApplication.create({
     data: {
       festivalId: festival.id,
-      firstName: formData.get("firstName") as string,
-      lastName: formData.get("lastName") as string,
-      email: (formData.get("email") as string) || null,
-      phone: (formData.get("phone") as string) || null,
-      carNumber: (formData.get("carNumber") as string) || null,
-      notes: (formData.get("notes") as string) || null,
+      firstName: requireString(formData, "firstName", "שם פרטי"),
+      lastName: requireString(formData, "lastName", "שם משפחה"),
+      email: optionalEmail(formData.get("email")),
+      phone: optionalString(formData.get("phone"), 50),
+      carNumber: optionalString(formData.get("carNumber"), 30),
+      notes: optionalString(formData.get("notes"), 2000),
     },
   });
 }
@@ -683,22 +725,29 @@ export async function approveTeamApplication(applicationId: string, roleId: stri
   await requireAdmin();
   const app = await prisma.teamApplication.findUniqueOrThrow({ where: { id: applicationId } });
 
-  await prisma.teamMember.create({
-    data: {
-      festivalId: app.festivalId,
-      firstName: app.firstName,
-      lastName: app.lastName,
-      email: app.email,
-      phone: app.phone,
-      carNumber: app.carNumber,
-      notes: app.notes,
-      roleId,
-    },
-  });
+  await prisma.$transaction(async (tx) => {
+    const role = await tx.teamMemberRole.findUniqueOrThrow({ where: { id: roleId } });
+    if (role.festivalId !== app.festivalId) {
+      throw new Error("תפקיד לא שייך לפסטיבל");
+    }
 
-  await prisma.teamApplication.update({
-    where: { id: applicationId },
-    data: { status: "approved" },
+    await tx.teamMember.create({
+      data: {
+        festivalId: app.festivalId,
+        firstName: app.firstName,
+        lastName: app.lastName,
+        email: app.email,
+        phone: app.phone,
+        carNumber: app.carNumber,
+        notes: app.notes,
+        roleId,
+      },
+    });
+
+    await tx.teamApplication.update({
+      where: { id: applicationId },
+      data: { status: "approved" },
+    });
   });
 
   revalidatePath(`/festivals/${app.festivalId}/team`);
@@ -803,31 +852,33 @@ export async function deleteVendorVehicle(id: string, festivalId: string) {
 export async function createVendorPayment(vendorId: string, festivalId: string, formData: FormData) {
   await requireAdmin();
   const vendor = await prisma.vendor.findUniqueOrThrow({ where: { id: vendorId } });
-  const amount = parseFloat(formData.get("amount") as string);
-  const description = formData.get("description") as string;
-  const dueDateStr = formData.get("dueDate") as string;
+  const amount = parseAmount(formData.get("amount"), "סכום");
+  const description = requireString(formData, "description", "תיאור");
+  const dueDateStr = readString(formData, "dueDate");
 
-  const budgetItem = await prisma.budgetItem.create({
-    data: {
-      festivalId,
-      description: `${vendor.name} — ${description}`,
-      amount: Math.round(amount),
-      type: "EXPENSE",
-      vendor: vendor.name,
-      isPaid: false,
-      date: dueDateStr ? new Date(dueDateStr) : new Date(),
-    },
-  });
+  await prisma.$transaction(async (tx) => {
+    const budgetItem = await tx.budgetItem.create({
+      data: {
+        festivalId,
+        description: `${vendor.name} — ${description}`,
+        amount: Math.round(amount),
+        type: "EXPENSE",
+        vendor: vendor.name,
+        isPaid: false,
+        date: dueDateStr ? new Date(dueDateStr) : new Date(),
+      },
+    });
 
-  await prisma.vendorPayment.create({
-    data: {
-      vendorId,
-      description,
-      amount,
-      dueDate: dueDateStr ? new Date(dueDateStr) : null,
-      isPaid: false,
-      budgetItemId: budgetItem.id,
-    },
+    await tx.vendorPayment.create({
+      data: {
+        vendorId,
+        description,
+        amount,
+        dueDate: dueDateStr ? new Date(dueDateStr) : null,
+        isPaid: false,
+        budgetItemId: budgetItem.id,
+      },
+    });
   });
 
   revalidatePath(`/festivals/${festivalId}/vendors`);
@@ -839,11 +890,13 @@ export async function toggleVendorPayment(id: string, festivalId: string) {
   const payment = await prisma.vendorPayment.findUniqueOrThrow({ where: { id } });
   const newPaid = !payment.isPaid;
 
-  await prisma.vendorPayment.update({ where: { id }, data: { isPaid: newPaid } });
+  await prisma.$transaction(async (tx) => {
+    await tx.vendorPayment.update({ where: { id }, data: { isPaid: newPaid } });
 
-  if (payment.budgetItemId) {
-    await prisma.budgetItem.update({ where: { id: payment.budgetItemId }, data: { isPaid: newPaid } });
-  }
+    if (payment.budgetItemId) {
+      await tx.budgetItem.update({ where: { id: payment.budgetItemId }, data: { isPaid: newPaid } });
+    }
+  });
 
   revalidatePath(`/festivals/${festivalId}/vendors`);
   revalidatePath(`/festivals/${festivalId}/budget`);
@@ -853,11 +906,13 @@ export async function deleteVendorPayment(id: string, festivalId: string) {
   await requireAdmin();
   const payment = await prisma.vendorPayment.findUniqueOrThrow({ where: { id } });
 
-  if (payment.budgetItemId) {
-    await prisma.budgetItem.delete({ where: { id: payment.budgetItemId } });
-  }
+  await prisma.$transaction(async (tx) => {
+    if (payment.budgetItemId) {
+      await tx.budgetItem.delete({ where: { id: payment.budgetItemId } });
+    }
 
-  await prisma.vendorPayment.delete({ where: { id } });
+    await tx.vendorPayment.delete({ where: { id } });
+  });
 
   revalidatePath(`/festivals/${festivalId}/vendors`);
   revalidatePath(`/festivals/${festivalId}/budget`);
@@ -968,32 +1023,60 @@ export async function submitVendorForm(
   const vendor = await prisma.vendor.findUnique({ where: { vendorToken: token } });
   if (!vendor) throw new Error("לינק לא תקין");
 
-  // Replace strategy: delete all existing, then insert new
-  await prisma.vendorContact.deleteMany({ where: { vendorId: vendor.id } });
-  await prisma.vendorVehicle.deleteMany({ where: { vendorId: vendor.id } });
+  const normalizedContacts = contacts
+    .slice(0, 50)
+    .map((contact) => ({
+      name: contact.name.trim(),
+      role: optionalString(contact.role, 100),
+      phone: optionalString(contact.phone, 50),
+      email: optionalEmail(contact.email),
+    }))
+    .filter((contact) => contact.name || contact.role || contact.phone || contact.email)
+    .map((contact) => ({
+      ...contact,
+      name: contact.name || (() => { throw new Error("לכל איש קשר חייב להיות שם"); })(),
+    }));
 
-  if (contacts.length > 0) {
-    await prisma.vendorContact.createMany({
-      data: contacts.map((c) => ({
-        vendorId: vendor.id,
-        name: c.name,
-        role: c.role || null,
-        phone: c.phone || null,
-        email: c.email || null,
-      })),
-    });
-  }
+  const normalizedVehicles = vehicles
+    .slice(0, 50)
+    .map((vehicle) => ({
+      plateNumber: vehicle.plateNumber.trim(),
+      vehicleType: optionalString(vehicle.vehicleType, 100),
+      arrivalTime: optionalString(vehicle.arrivalTime, 20),
+    }))
+    .filter((vehicle) => vehicle.plateNumber || vehicle.vehicleType || vehicle.arrivalTime)
+    .map((vehicle) => ({
+      ...vehicle,
+      plateNumber: vehicle.plateNumber || (() => { throw new Error("לכל רכב חייב להיות מספר רכב"); })(),
+    }));
 
-  if (vehicles.length > 0) {
-    await prisma.vendorVehicle.createMany({
-      data: vehicles.map((v) => ({
-        vendorId: vendor.id,
-        plateNumber: v.plateNumber,
-        vehicleType: v.vehicleType || null,
-        arrivalTime: v.arrivalTime || null,
-      })),
-    });
-  }
+  await prisma.$transaction(async (tx) => {
+    await tx.vendorContact.deleteMany({ where: { vendorId: vendor.id } });
+    await tx.vendorVehicle.deleteMany({ where: { vendorId: vendor.id } });
+
+    if (normalizedContacts.length > 0) {
+      await tx.vendorContact.createMany({
+        data: normalizedContacts.map((contact) => ({
+          vendorId: vendor.id,
+          name: contact.name,
+          role: contact.role,
+          phone: contact.phone,
+          email: contact.email,
+        })),
+      });
+    }
+
+    if (normalizedVehicles.length > 0) {
+      await tx.vendorVehicle.createMany({
+        data: normalizedVehicles.map((vehicle) => ({
+          vendorId: vendor.id,
+          plateNumber: vehicle.plateNumber,
+          vehicleType: vehicle.vehicleType,
+          arrivalTime: vehicle.arrivalTime,
+        })),
+      });
+    }
+  });
 
   revalidatePath(`/festivals/${vendor.festivalId}/vendors`);
 }

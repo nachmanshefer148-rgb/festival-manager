@@ -49,6 +49,7 @@ export default async function StagesPage({
       stages={serializedStages}
       teamMembers={teamMembers}
       isAdmin={role === "admin"}
+      canAccessFiles={role !== "limited"}
       createStage={createStage}
       updateStage={updateStage}
       deleteStage={deleteStage}

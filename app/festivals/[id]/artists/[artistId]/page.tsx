@@ -71,6 +71,7 @@ export default async function ArtistDetailPage({
       festivalId={id}
       artist={serialized}
       isAdmin={role === "admin"}
+      canAccessFiles={role !== "limited"}
       showFinancials={showFinancials}
       updateArtist={updateArtist}
       updateArtistImage={updateArtistImage}

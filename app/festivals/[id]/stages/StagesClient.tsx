@@ -42,6 +42,7 @@ interface Props {
   stages: Stage[];
   teamMembers: TeamMember[];
   isAdmin: boolean;
+  canAccessFiles?: boolean;
   createStage: (fd: FormData) => Promise<void>;
   updateStage: (id: string, fd: FormData) => Promise<void>;
   deleteStage: (id: string, festivalId: string) => Promise<void>;
@@ -192,6 +193,7 @@ function StageCard({
   stage,
   festivalId,
   isAdmin,
+  canAccessFiles,
   teamMembers,
   onEdit,
   onDelete,
@@ -201,6 +203,7 @@ function StageCard({
   stage: Stage;
   festivalId: string;
   isAdmin: boolean;
+  canAccessFiles: boolean;
   teamMembers: TeamMember[];
   onEdit: (stage: Stage) => void;
   onDelete: (stage: Stage) => void;
@@ -226,7 +229,7 @@ function StageCard({
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/upload?folder=stages", { method: "POST", body: fd });
+      const res = await fetch("/api/upload?folder=stage-files", { method: "POST", body: fd });
       const data = await res.json();
       if (data.url) {
         await onAddFile(stage, file);
@@ -268,7 +271,7 @@ function StageCard({
 
       {/* Tabs */}
       <div className="flex border-b border-gray-100">
-        {(["info", "files"] as const).map((t) => (
+        {(["info", ...(canAccessFiles ? (["files"] as const) : [])] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -327,7 +330,7 @@ function StageCard({
           </div>
         )}
 
-        {tab === "files" && (
+        {canAccessFiles && tab === "files" && (
           <div className="space-y-2">
             {stage.files.length === 0 && (
               <p className="text-gray-400 text-xs text-center py-3">אין מסמכים עדיין</p>
@@ -369,7 +372,7 @@ function StageCard({
                       try {
                         const fd = new FormData();
                         fd.append("file", file);
-                        const res = await fetch("/api/upload?folder=stages", { method: "POST", body: fd });
+                        const res = await fetch("/api/upload?folder=stage-files", { method: "POST", body: fd });
                         const data = await res.json();
                         if (data.url) {
                           const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
@@ -445,6 +448,7 @@ export default function StagesClient({
   stages: initialStages,
   teamMembers,
   isAdmin,
+  canAccessFiles = true,
   createStage,
   updateStage,
   deleteStage,
@@ -567,6 +571,7 @@ export default function StagesClient({
               stage={stage}
               festivalId={festivalId}
               isAdmin={isAdmin}
+              canAccessFiles={canAccessFiles}
               teamMembers={teamMembers}
               onEdit={setEditingStage}
               onDelete={handleDelete}

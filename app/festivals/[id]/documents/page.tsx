@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getRole } from "@/lib/auth";
 import { createFestivalFile, deleteFestivalFile } from "@/app/actions";
 import DocumentsClient from "./DocumentsClient";
@@ -69,6 +69,7 @@ export default async function DocumentsPage({
       }),
     ]);
 
+  if (role === "limited") redirect("/login?from=documents");
   if (!festival) notFound();
 
   // Serialize dates

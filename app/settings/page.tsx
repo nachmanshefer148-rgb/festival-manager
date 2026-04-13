@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic';
 import { prisma } from "@/lib/prisma";
+import { revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
-import { getRole, clearSessionCookie } from "@/lib/auth";
+import { getRole } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 import Link from "next/link";
 
@@ -19,19 +20,24 @@ export default async function SettingsPage({
 
   async function toggleBudget(formData: FormData) {
     "use server";
+    if ((await getRole()) !== "admin") redirect("/login?from=settings");
     const show = formData.get("showBudget") === "true";
     await prisma.appSettings.update({ where: { id: "global" }, data: { showBudget: show } });
+    revalidateTag("app-settings", "max");
     redirect("/settings?msg=saved");
   }
 
   async function changePassword(formData: FormData) {
     "use server";
+    if ((await getRole()) !== "admin") redirect("/login?from=settings");
     const settings = await prisma.appSettings.findUnique({ where: { id: "global" } });
     if (!settings) redirect("/setup");
 
     const target = formData.get("target") as "admin" | "viewer";
     const current = formData.get("current") as string;
     const newPass = formData.get("new") as string;
+    if (target !== "admin" && target !== "viewer") redirect("/settings?error=wrong");
+    if (!current || newPass.trim().length < 4) redirect("/settings?error=wrong");
 
     const hash = target === "admin" ? settings.adminPassword : settings.viewerPassword;
     const match = await bcrypt.compare(current, hash);

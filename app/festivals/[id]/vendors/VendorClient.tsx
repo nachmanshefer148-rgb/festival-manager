@@ -76,6 +76,7 @@ interface Props {
   festivalId: string;
   vendors: Vendor[];
   isAdmin: boolean;
+  canAccessFiles?: boolean;
   showFinancials?: boolean;
   createVendor: (fd: FormData) => Promise<void>;
   updateVendor: (id: string, fd: FormData) => Promise<void>;
@@ -98,6 +99,7 @@ export default function VendorClient({
   festivalId,
   vendors,
   isAdmin,
+  canAccessFiles = true,
   showFinancials = true,
   createVendor,
   updateVendor,
@@ -397,7 +399,7 @@ export default function VendorClient({
                   { key: "contacts", label: `👤 אנשי קשר (${detailData.contacts.length})` },
                   { key: "vehicles", label: `🚗 רכבים (${detailData.vehicles.length})` },
                   ...(showFinancials ? [{ key: "payments" as DetailTab, label: `💳 תשלומים (${detailData.payments.length})` }] : []),
-                  { key: "files", label: `📎 קבצים (${detailData.files.length})` },
+                  ...(canAccessFiles ? [{ key: "files" as DetailTab, label: `📎 קבצים (${detailData.files.length})` }] : []),
                 ] as { key: DetailTab; label: string }[]).map(({ key, label }) => (
                   <button
                     key={key}
@@ -441,7 +443,7 @@ export default function VendorClient({
                   deleteVendorPayment={async (id, fid) => { await deleteVendorPayment(id, fid); await refreshDetail(); }}
                 />
               )}
-              {detailTab === "files" && (
+              {canAccessFiles && detailTab === "files" && (
                 <FilesTab
                   vendor={detailData}
                   festivalId={festivalId}
@@ -763,7 +765,7 @@ function FilesTab({
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const res = await fetch("/api/upload?folder=vendor-files", { method: "POST", body: fd });
       if (!res.ok) {
         const { error } = await res.json();
         alert(error);

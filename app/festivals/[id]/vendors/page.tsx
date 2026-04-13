@@ -65,6 +65,7 @@ export default async function VendorsPage({
       festivalId={id}
       vendors={serialized}
       isAdmin={role === "admin"}
+      canAccessFiles={role !== "limited"}
       showFinancials={showFinancials}
       createVendor={createVendor}
       updateVendor={updateVendor}

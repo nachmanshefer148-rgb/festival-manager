@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
+import { randomUUID } from "crypto";
 import { getRole } from "@/lib/auth";
 
 const ALLOWED_TYPES = [
@@ -14,6 +15,28 @@ const ALLOWED_TYPES = [
 ];
 
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+
+const FOLDER_CONFIG = {
+  "artist-images": { access: "public", storageFolder: "artist-images" },
+  "artist-files": { access: "private", storageFolder: "artist-files" },
+  "stage-files": { access: "private", storageFolder: "stage-files" },
+  "festival-files": { access: "private", storageFolder: "festival-files" },
+  "vendor-files": { access: "private", storageFolder: "vendor-files" },
+} as const;
+
+type UploadFolder = keyof typeof FOLDER_CONFIG;
+
+function isUploadFolder(value: string): value is UploadFolder {
+  return value in FOLDER_CONFIG;
+}
+
+function getExtension(filename: string): string {
+  const clean = filename.trim().toLowerCase();
+  const lastDot = clean.lastIndexOf(".");
+  if (lastDot === -1) return "";
+  const ext = clean.slice(lastDot).replace(/[^a-z0-9.]/g, "");
+  return ext.length <= 10 ? ext : "";
+}
 
 export async function POST(req: NextRequest) {
   const role = await getRole();
@@ -36,16 +59,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "הקובץ גדול מדי (מקסימום 10MB)" }, { status: 400 });
   }
 
-  const rawFolder = new URL(req.url).searchParams.get("folder") ?? "vendors";
-  const folder = rawFolder.replace(/[^a-z0-9_-]/gi, "") || "vendors";
+  const rawFolder = new URL(req.url).searchParams.get("folder") ?? "vendor-files";
+  if (!isUploadFolder(rawFolder)) {
+    return NextResponse.json({ error: "יעד העלאה לא תקין" }, { status: 400 });
+  }
 
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const filename = `${Date.now()}-${safeName}`;
+  const folder = FOLDER_CONFIG[rawFolder];
+  const filename = `${randomUUID()}${getExtension(file.name)}`;
 
-  const blob = await put(`${folder}/${filename}`, file, {
-    access: "public",
+  const blob = await put(`${folder.storageFolder}/${filename}`, file, {
+    access: folder.access,
     contentType: file.type,
   });
 
-  return NextResponse.json({ url: blob.url });
+  const url =
+    folder.access === "private"
+      ? `/api/files?pathname=${encodeURIComponent(blob.pathname)}`
+      : blob.url;
+
+  return NextResponse.json({ url });
 }

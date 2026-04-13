@@ -19,8 +19,13 @@ export default async function LoginPage({
     const settings = await prisma.appSettings.findUnique({ where: { id: "global" } });
     if (!settings) redirect("/setup");
 
-    const role = formData.get("role") as "admin" | "viewer";
-    const password = formData.get("password") as string;
+    const rawRole = formData.get("role");
+    const role = rawRole === "admin" || rawRole === "viewer" ? rawRole : null;
+    const rawPassword = formData.get("password");
+    const password = typeof rawPassword === "string" ? rawPassword : "";
+    if (!role || password.length === 0) {
+      redirect(`/login?error=wrong${from ? `&from=${from}` : ""}`);
+    }
 
     const hash = role === "admin" ? settings.adminPassword : settings.viewerPassword;
     const match = await bcrypt.compare(password, hash);

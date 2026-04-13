@@ -32,7 +32,7 @@ export default async function FestivalLayout({
     { href: "/stages", label: "במות", icon: "🎪" },
     { href: "/team", label: "צוות", icon: "👥" },
     { href: "/vendors", label: "ספקים", icon: "🏢" },
-    { href: "/documents", label: "מסמכים", icon: "📁" },
+    ...(role !== "limited" ? [{ href: "/documents", label: "מסמכים", icon: "📁" }] : []),
     ...(showBudget ? [{ href: "/budget", label: "תקציב", icon: "💰" }] : []),
   ];
 

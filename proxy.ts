@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { SESSION_COOKIE } from "@/lib/auth-constants";
 
 // Edge-safe: just extract the role prefix without HMAC (full verification happens server-side)
 function getRoleFromCookie(cookieValue?: string): string {
@@ -10,7 +11,7 @@ function getRoleFromCookie(cookieValue?: string): string {
 }
 
 export function proxy(req: NextRequest) {
-  const role = getRoleFromCookie(req.cookies.get("fs-session")?.value);
+  const role = getRoleFromCookie(req.cookies.get(SESSION_COOKIE)?.value);
   const { pathname } = req.nextUrl;
 
   if (pathname.startsWith("/settings") && role !== "admin") {
