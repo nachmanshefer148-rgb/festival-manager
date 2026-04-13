@@ -19,10 +19,10 @@ export default function LiveClock() {
 
   return (
     <div className="text-right">
-      <p className="text-white font-mono text-lg sm:text-xl font-bold tabular-nums leading-none">
+      <p className="text-gray-900 font-mono text-lg sm:text-xl font-bold tabular-nums leading-none">
         {time || "--:--:--"}
       </p>
-      <p className="text-gray-500 text-xs mt-0.5">{date}</p>
+      <p className="text-gray-400 text-xs mt-0.5">{date}</p>
     </div>
   );
 }

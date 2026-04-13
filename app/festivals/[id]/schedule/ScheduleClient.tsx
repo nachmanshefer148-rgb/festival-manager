@@ -204,6 +204,40 @@ export default function ScheduleClient({
     URL.revokeObjectURL(url);
   }
 
+  function exportICal() {
+    const fmt = (d: Date) =>
+      d.toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
+    const lines: string[] = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Festival Manager//HE",
+      "CALSCALE:GREGORIAN",
+      "METHOD:PUBLISH",
+    ];
+    for (const stage of stagesWithFiltered) {
+      for (const slot of stage.timeSlots) {
+        if (!slot.artist) continue;
+        lines.push(
+          "BEGIN:VEVENT",
+          `DTSTART:${fmt(new Date(slot.startTime))}`,
+          `DTEND:${fmt(new Date(slot.endTime))}`,
+          `SUMMARY:${slot.artist.name} \u2014 ${stage.name}`,
+          ...(slot.notes ? [`DESCRIPTION:${slot.notes.replace(/\n/g, "\\n")}`] : []),
+          `UID:${slot.id}@festival-manager`,
+          "END:VEVENT",
+        );
+      }
+    }
+    lines.push("END:VCALENDAR");
+    const blob = new Blob([lines.join("\r\n")], { type: "text/calendar;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `schedule-${selectedDate}.ics`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   // Edit slot state
   const [editingSlot, setEditingSlot] = useState<TimeSlot | null>(null);
   const [editType, setEditType] = useState<"SOUNDCHECK" | "PERFORMANCE">("PERFORMANCE");
@@ -296,6 +330,13 @@ export default function ScheduleClient({
             title="ייצוא CSV"
           >
             ↓ CSV
+          </button>
+          <button
+            onClick={exportICal}
+            className="bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+            title="ייצוא iCal (Google Calendar)"
+          >
+            📅 iCal
           </button>
           <button
             onClick={() => window.print()}

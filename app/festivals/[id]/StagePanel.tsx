@@ -296,13 +296,13 @@ export default function StagePanel({
 
   // DONE state
   return (
-    <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-3 bg-gray-800/50 border-b border-gray-800">
-        <span className="text-gray-600 text-sm font-bold tracking-widest uppercase">Done</span>
-        <span className="text-gray-600 text-sm">{stageName}</span>
+    <div className="bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-gray-100">
+        <span className="text-gray-400 text-sm font-bold tracking-widest uppercase">Done</span>
+        <span className="text-gray-400 text-sm">{stageName}</span>
       </div>
       <div className="px-5 py-6 text-center">
-        <p className="text-gray-600 text-sm">סיום הופעות</p>
+        <p className="text-gray-400 text-sm">סיום הופעות</p>
       </div>
     </div>
   );

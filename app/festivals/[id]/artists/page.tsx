@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createArtist, createArtistContact, createArtistVehicle } from "@/app/actions";
 import AddArtistModal from "./AddArtistModal";
+import ArtistsExportButton from "./ArtistsExportButton";
 import { getRole } from "@/lib/auth";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -39,7 +40,7 @@ export default async function ArtistsPage({
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 gap-2 flex-wrap">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-gray-900">🎤 אמנים</h1>
           {artists.length > 0 && (
@@ -48,7 +49,10 @@ export default async function ArtistsPage({
             </span>
           )}
         </div>
-        {isAdmin && <AddArtistModal festivalId={id} createArtist={createArtist} createArtistContact={createArtistContact} createArtistVehicle={createArtistVehicle} />}
+        <div className="flex gap-2">
+          {artists.length > 0 && <ArtistsExportButton artists={artists} />}
+          {isAdmin && <AddArtistModal festivalId={id} createArtist={createArtist} createArtistContact={createArtistContact} createArtistVehicle={createArtistVehicle} />}
+        </div>
       </div>
 
       {/* List */}

@@ -53,6 +53,29 @@ export default function BudgetClient({
   // Group categories
   const categories = [...new Set(items.map((i) => i.category).filter(Boolean))] as string[];
 
+  function exportCSV() {
+    const BOM = "\uFEFF";
+    const header = "תיאור,סוג,קטגוריה,ספק,סכום,שולם,תאריך";
+    const rows = items.map((item) =>
+      [
+        `"${item.description.replace(/"/g, '""')}"`,
+        item.type === "INCOME" ? "הכנסה" : "הוצאה",
+        `"${(item.category ?? "").replace(/"/g, '""')}"`,
+        `"${(item.vendor ?? "").replace(/"/g, '""')}"`,
+        item.amount,
+        item.isPaid ? "כן" : "לא",
+        item.date.split("T")[0],
+      ].join(",")
+    );
+    const csv = BOM + [header, ...rows].join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "budget.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function openAdd(type: "INCOME" | "EXPENSE") {
     setDefaultType(type);
     setEditItem(null);
@@ -61,18 +84,34 @@ export default function BudgetClient({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 gap-2 flex-wrap">
         <h1 className="text-2xl font-bold text-gray-900">💰 תקציב</h1>
-        {isAdmin && (
-          <div className="flex flex-wrap gap-2">
-            <button onClick={() => openAdd("INCOME")} className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors">
-              + הכנסה
-            </button>
-            <button onClick={() => openAdd("EXPENSE")} className="bg-red-500 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-red-600 transition-colors">
-              + הוצאה
-            </button>
-          </div>
-        )}
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={exportCSV}
+            className="bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+            title="ייצוא CSV"
+          >
+            ↓ CSV
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+            title="הדפס"
+          >
+            🖨️
+          </button>
+          {isAdmin && (
+            <>
+              <button onClick={() => openAdd("INCOME")} className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors">
+                + הכנסה
+              </button>
+              <button onClick={() => openAdd("EXPENSE")} className="bg-red-500 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-red-600 transition-colors">
+                + הוצאה
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Summary cards */}
