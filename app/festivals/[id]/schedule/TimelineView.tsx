@@ -172,15 +172,24 @@ export default function TimelineView({ stages, onEditSlot, onMoveSlot }: Props) 
     return ((ms - minTime) / totalMs) * 100;
   }
 
-  // Hourly tick marks
+  // Dynamic tick step based on zoom level
+  function tickStepMinutes(z: number): number {
+    if (z >= 4)    return 15;
+    if (z >= 2)    return 30;
+    if (z >= 1)    return 60;
+    if (z >= 0.5)  return 120;
+    if (z >= 0.25) return 180;
+    return 360;
+  }
+
+  const stepMin = tickStepMinutes(zoom);
+  const stepMs  = stepMin * 60_000;
   const ticks: Date[] = [];
-  const tickStart = new Date(minTime);
-  tickStart.setMinutes(0, 0, 0);
-  if (tickStart.getTime() < minTime) tickStart.setHours(tickStart.getHours() + 1);
+  const tickStart = new Date(Math.ceil(minTime / stepMs) * stepMs);
   const t = new Date(tickStart);
   while (t.getTime() <= maxTime) {
     ticks.push(new Date(t));
-    t.setHours(t.getHours() + 1);
+    t.setTime(t.getTime() + stepMs);
   }
 
   // Midnight markers (day boundaries)
@@ -248,6 +257,7 @@ export default function TimelineView({ stages, onEditSlot, onMoveSlot }: Props) 
         <div ref={scrollRef} className="overflow-x-auto overflow-y-hidden">
           <div
             ref={innerRef}
+            dir="ltr"
             style={{ width: zoom > 1 ? `${zoom * 100}%` : "100%", minWidth: "100%" }}
             key={zoom}
           >
@@ -256,14 +266,22 @@ export default function TimelineView({ stages, onEditSlot, onMoveSlot }: Props) 
               {ticks.map((tick, i) => {
                 const p = pct(tick.getTime());
                 if (p < 0 || p > 100) return null;
+                const isFullHour = tick.getMinutes() === 0;
                 return (
                   <div
                     key={i}
                     className="absolute top-0 bottom-0 flex items-center"
                     style={{ left: `${p}%` }}
                   >
-                    <div className="absolute h-full border-l border-gray-200" />
-                    <span className="text-xs text-gray-400 ml-1 whitespace-nowrap" dir="ltr">
+                    <div className={`absolute h-full border-l ${isFullHour ? "border-gray-200" : "border-gray-100"}`} />
+                    <span
+                      className={`ml-1 whitespace-nowrap select-none leading-none ${
+                        isFullHour
+                          ? "text-[11px] font-semibold text-gray-700"
+                          : "text-[9px] font-normal text-gray-400"
+                      }`}
+                      dir="ltr"
+                    >
                       {tick.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit", hour12: false })}
                     </span>
                   </div>
@@ -311,14 +329,15 @@ export default function TimelineView({ stages, onEditSlot, onMoveSlot }: Props) 
 
                   {/* Track */}
                   <div className="flex-1 relative" style={{ height: ROW_HEIGHT }}>
-                    {/* Hourly grid lines */}
+                    {/* Grid lines — full hours darker, sub-hour lighter */}
                     {ticks.map((tick, i) => {
                       const p = pct(tick.getTime());
                       if (p < 0 || p > 100) return null;
+                      const isFullHour = tick.getMinutes() === 0;
                       return (
                         <div
                           key={i}
-                          className="absolute top-0 bottom-0 border-l border-gray-100"
+                          className={`absolute top-0 bottom-0 border-l ${isFullHour ? "border-gray-100" : "border-gray-50"}`}
                           style={{ left: `${p}%` }}
                         />
                       );
