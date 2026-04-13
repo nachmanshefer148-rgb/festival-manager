@@ -11,16 +11,21 @@ interface Festival {
   description: string | null;
   startDate: Date;
   endDate: Date;
+  owner?: {
+    name: string;
+    email: string;
+  } | null;
 }
 
 interface Props {
   festivals: Festival[];
   isAdmin: boolean;
+  showOwners?: boolean;
   deleteFestival: (id: string) => Promise<void>;
   updateFestival: (id: string, fd: FormData) => Promise<void>;
 }
 
-export default function FestivalList({ festivals, isAdmin, deleteFestival, updateFestival }: Props) {
+export default function FestivalList({ festivals, isAdmin, showOwners = false, deleteFestival, updateFestival }: Props) {
   const [editFestival, setEditFestival] = useState<Festival | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -49,6 +54,9 @@ export default function FestivalList({ festivals, isAdmin, deleteFestival, updat
                 <div className="text-sm text-gray-500 mt-1 flex flex-wrap gap-4">
                   <span>📍 {f.location}</span>
                   <span>📅 {formatDate(f.startDate)} – {formatDate(f.endDate)}</span>
+                  {showOwners && f.owner && (
+                    <span>👤 {f.owner.name} · {f.owner.email}</span>
+                  )}
                 </div>
               </Link>
               {isAdmin && (

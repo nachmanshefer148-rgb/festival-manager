@@ -14,7 +14,7 @@ import {
   updateArtist,
   updateArtistImage,
 } from "@/app/actions";
-import { requireOwnedFestivalPage } from "@/lib/access";
+import { requireFestivalAccessPage } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import ArtistDetailClient from "./ArtistDetailClient";
 
@@ -24,7 +24,7 @@ export default async function ArtistDetailPage({
   params: Promise<{ id: string; artistId: string }>;
 }) {
   const { id, artistId } = await params;
-  await requireOwnedFestivalPage(id);
+  const access = await requireFestivalAccessPage(id);
 
   const artist = await prisma.artist.findUnique({
     where: { id: artistId },
@@ -63,9 +63,9 @@ export default async function ArtistDetailPage({
     <ArtistDetailClient
       festivalId={id}
       artist={serialized}
-      isAdmin={true}
-      canAccessFiles={true}
-      showFinancials={true}
+      isAdmin={access.isAdmin}
+      canAccessFiles={access.canViewDocuments}
+      showFinancials={access.canViewBudget}
       updateArtist={updateArtist}
       updateArtistImage={updateArtistImage}
       deleteArtist={deleteArtist}

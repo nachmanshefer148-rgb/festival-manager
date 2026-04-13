@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 import { extendTimeSlot, updateTimeSlotStatus } from "@/app/actions";
-import { requireOwnedFestivalPage } from "@/lib/access";
+import { requireFestivalAccessPage } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import LiveDashboard from "./LiveDashboard";
 
@@ -10,7 +10,7 @@ export default async function FestivalDashboard({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { festival } = await requireOwnedFestivalPage(id);
+  const { festival, isAdmin, canViewBudget } = await requireFestivalAccessPage(id);
 
   const fullFestival = await prisma.festival.findUnique({
     where: { id },
@@ -81,11 +81,11 @@ export default async function FestivalDashboard({
       festivalLocation={festival.location}
       stagesData={stagesData}
       conflicts={conflicts}
-      showBudget={true}
+      showBudget={canViewBudget}
       budgetBalance={income - expenses}
       income={income}
       expenses={expenses}
-      isAdmin={true}
+      isAdmin={isAdmin}
       extendTimeSlot={extendTimeSlot}
       updateTimeSlotStatus={updateTimeSlotStatus}
     />

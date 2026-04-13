@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { logout } from "@/app/actions";
-import { requireOwnedFestivalPage } from "@/lib/access";
+import { requireFestivalAccessPage } from "@/lib/access";
 import { formatDate } from "@/lib/utils";
 import NavDrawer from "./NavDrawer";
 import { NavLink } from "./NavLink";
@@ -14,7 +14,8 @@ export default async function FestivalLayout({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { user, festival } = await requireOwnedFestivalPage(id);
+  const access = await requireFestivalAccessPage(id);
+  const { user, festival, isAdmin, canViewBudget, canViewDocuments } = access;
 
   const nav = [
     { href: "", label: "דשבורד", icon: "🏠" },
@@ -23,8 +24,8 @@ export default async function FestivalLayout({
     { href: "/stages", label: "במות", icon: "🎪" },
     { href: "/team", label: "צוות", icon: "👥" },
     { href: "/vendors", label: "ספקים", icon: "🏢" },
-    { href: "/documents", label: "מסמכים", icon: "📁" },
-    { href: "/budget", label: "תקציב", icon: "💰" },
+    ...(canViewDocuments ? [{ href: "/documents", label: "מסמכים", icon: "📁" }] : []),
+    ...(canViewBudget ? [{ href: "/budget", label: "תקציב", icon: "💰" }] : []),
   ];
 
   return (
@@ -46,16 +47,18 @@ export default async function FestivalLayout({
 
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <span className="text-xs font-medium px-2 py-1 rounded-lg hidden sm:block bg-violet-900 text-violet-200">
-            {user.name}
+            {isAdmin ? user?.name : "צפייה מוגבלת"}
           </span>
           <form action={logout}>
             <button type="submit" className="text-violet-200 hover:text-white text-xs transition-colors">
-              יציאה
+              {isAdmin ? "יציאה" : "סיום צפייה"}
             </button>
           </form>
-          <Link href="/settings" className="text-violet-200 hover:text-white text-xs transition-colors" aria-label="הגדרות">
-            ⚙️
-          </Link>
+          {isAdmin && (
+            <Link href="/settings" className="text-violet-200 hover:text-white text-xs transition-colors" aria-label="הגדרות">
+              ⚙️
+            </Link>
+          )}
         </div>
       </header>
 

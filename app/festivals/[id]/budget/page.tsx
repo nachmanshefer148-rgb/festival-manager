@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
+import { notFound } from "next/navigation";
 import { createBudgetItem, deleteBudgetItem, toggleBudgetItemPaid, updateBudgetItem } from "@/app/actions";
-import { requireOwnedFestivalPage } from "@/lib/access";
+import { requireFestivalAccessPage } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import BudgetClient from "./BudgetClient";
 
@@ -10,7 +11,8 @@ export default async function BudgetPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  await requireOwnedFestivalPage(id);
+  const access = await requireFestivalAccessPage(id);
+  if (!access.canViewBudget) notFound();
 
   const items = await prisma.budgetItem.findMany({
     where: { festivalId: id },
@@ -26,7 +28,7 @@ export default async function BudgetPage({
     <BudgetClient
       festivalId={id}
       items={serialized}
-      isAdmin={true}
+      isAdmin={access.isAdmin}
       createBudgetItem={createBudgetItem}
       deleteBudgetItem={deleteBudgetItem}
       updateBudgetItem={updateBudgetItem}

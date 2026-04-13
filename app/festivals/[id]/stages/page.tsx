@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 import { createStage, createStageFile, deleteStage, deleteStageFile, updateStage } from "@/app/actions";
-import { requireOwnedFestivalPage } from "@/lib/access";
+import { requireFestivalAccessPage } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import StagesClient from "./StagesClient";
 
@@ -10,7 +10,7 @@ export default async function StagesPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  await requireOwnedFestivalPage(id);
+  const access = await requireFestivalAccessPage(id);
 
   const [stages, teamMembers] = await Promise.all([
     prisma.stage.findMany({
@@ -38,8 +38,8 @@ export default async function StagesPage({
       festivalId={id}
       stages={serializedStages}
       teamMembers={teamMembers}
-      isAdmin={true}
-      canAccessFiles={true}
+      isAdmin={access.isAdmin}
+      canAccessFiles={access.canViewDocuments}
       createStage={createStage}
       updateStage={updateStage}
       deleteStage={deleteStage}

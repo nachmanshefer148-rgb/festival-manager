@@ -14,7 +14,7 @@ import {
   toggleVendorPayment,
   updateVendor,
 } from "@/app/actions";
-import { requireOwnedFestivalPage } from "@/lib/access";
+import { requireFestivalAccessPage } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import VendorClient from "./VendorClient";
 
@@ -24,7 +24,7 @@ export default async function VendorsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  await requireOwnedFestivalPage(id);
+  const access = await requireFestivalAccessPage(id);
 
   const vendors = await prisma.vendor.findMany({
     where: { festivalId: id },
@@ -52,9 +52,9 @@ export default async function VendorsPage({
     <VendorClient
       festivalId={id}
       vendors={serialized}
-      isAdmin={true}
-      canAccessFiles={true}
-      showFinancials={true}
+      isAdmin={access.isAdmin}
+      canAccessFiles={access.canViewDocuments}
+      showFinancials={access.canViewBudget}
       createVendor={createVendor}
       updateVendor={updateVendor}
       deleteVendor={deleteVendor}

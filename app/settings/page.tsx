@@ -66,6 +66,10 @@ export default async function SettingsPage({
           <div className="space-y-1 text-sm text-gray-600">
             <p><span className="font-medium text-gray-800">שם:</span> {user.name}</p>
             <p><span className="font-medium text-gray-800">אימייל:</span> {user.email}</p>
+            <p>
+              <span className="font-medium text-gray-800">הרשאה:</span>{" "}
+              {user.role === "SUPER_ADMIN" ? "מנהל מערכת" : "משתמש"}
+            </p>
           </div>
         </div>
 

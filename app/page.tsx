@@ -8,9 +8,18 @@ import { requireCurrentUserPage } from "@/lib/auth";
 export default async function Home() {
   const user = await requireCurrentUserPage();
   const festivals = await prisma.festival.findMany({
-    where: { ownerId: user.id },
+    where: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+    include: {
+      owner: {
+        select: {
+          name: true,
+          email: true,
+        },
+      },
+    },
     orderBy: { startDate: "asc" },
   });
+  const isSuperAdmin = user.role === "SUPER_ADMIN";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-violet-50 to-indigo-50">
@@ -18,9 +27,16 @@ export default async function Home() {
         <div className="mb-10 flex items-start justify-between gap-4">
           <div>
             <h1 className="text-4xl font-bold text-violet-900 mb-2">🎵 Festival Manager</h1>
-            <p className="text-gray-500 text-lg">שלום {user.name}, כאן מנהלים את הפסטיבלים שלך</p>
+            <p className="text-gray-500 text-lg">
+              שלום {user.name}, כאן מנהלים {isSuperAdmin ? "את כל הפסטיבלים במערכת" : "את הפסטיבלים שלך"}
+            </p>
           </div>
           <div className="flex items-center gap-3 mt-2">
+            {isSuperAdmin && (
+              <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
+                מנהל מערכת
+              </span>
+            )}
             <span className="text-sm text-gray-500 font-medium">{user.email}</span>
             <Link href="/settings" className="text-sm text-gray-500 hover:text-violet-600 transition">
               ⚙️
@@ -35,10 +51,13 @@ export default async function Home() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">הפסטיבלים שלך</h2>
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">
+              {isSuperAdmin ? "כל הפסטיבלים" : "הפסטיבלים שלך"}
+            </h2>
             <FestivalList
               festivals={festivals}
               isAdmin={true}
+              showOwners={isSuperAdmin}
               deleteFestival={deleteFestival}
               updateFestival={updateFestival}
             />

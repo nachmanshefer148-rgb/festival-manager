@@ -5,6 +5,14 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, setSessionCookie } from "@/lib/auth";
 
+function isConfiguredSuperAdmin(email: string) {
+  return (process.env.SUPER_ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(email);
+}
+
 export default async function SignupPage({
   searchParams,
 }: {
@@ -35,7 +43,12 @@ export default async function SignupPage({
     const user = await prisma.$transaction(async (tx) => {
       const userCount = await tx.user.count();
       const created = await tx.user.create({
-        data: { name, email, passwordHash },
+        data: {
+          name,
+          email,
+          passwordHash,
+          role: userCount === 0 || isConfiguredSuperAdmin(email) ? "SUPER_ADMIN" : "USER",
+        },
       });
 
       if (userCount === 0) {

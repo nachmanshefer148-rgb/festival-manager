@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import {
   approveTeamApplication,
   createCommunityContact,
+  generateFestivalViewerToken,
   createTeamMember,
   createTeamRole,
   deleteCommunityContact,
@@ -9,10 +10,11 @@ import {
   deleteTeamRole,
   generateInviteToken,
   rejectTeamApplication,
+  saveFestivalViewerAccess,
   updateCommunityContact,
   updateTeamMember,
 } from "@/app/actions";
-import { requireOwnedFestivalPage } from "@/lib/access";
+import { requireFestivalAccessPage } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import TeamClient from "./TeamClient";
 
@@ -22,7 +24,8 @@ export default async function TeamPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { festival } = await requireOwnedFestivalPage(id);
+  const access = await requireFestivalAccessPage(id);
+  const { festival, isAdmin } = access;
 
   const [members, roles, applications, communityContacts] = await Promise.all([
     prisma.teamMember.findMany({
@@ -49,8 +52,12 @@ export default async function TeamPage({
       festivalId={id}
       members={members}
       roles={roles}
-      isAdmin={true}
+      isAdmin={isAdmin}
       inviteToken={festival.inviteToken}
+      viewerToken={festival.viewerToken}
+      viewerAccessEnabled={festival.viewerAccessEnabled}
+      viewerShowBudget={festival.viewerShowBudget}
+      viewerShowDocuments={festival.viewerShowDocuments}
       applications={applications}
       createTeamMember={createTeamMember}
       deleteTeamMember={deleteTeamMember}
@@ -58,6 +65,8 @@ export default async function TeamPage({
       createTeamRole={createTeamRole}
       deleteTeamRole={deleteTeamRole}
       generateInviteToken={generateInviteToken}
+      generateFestivalViewerToken={generateFestivalViewerToken}
+      saveFestivalViewerAccess={saveFestivalViewerAccess}
       approveTeamApplication={approveTeamApplication}
       rejectTeamApplication={rejectTeamApplication}
       communityContacts={communityContacts}

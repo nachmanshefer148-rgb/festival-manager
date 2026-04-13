@@ -2,9 +2,14 @@ import { cookies } from "next/headers";
 import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { SESSION_COOKIE } from "@/lib/auth-constants";
+import { GUEST_SESSION_COOKIE, SESSION_COOKIE } from "@/lib/auth-constants";
 
-export type Role = "admin" | "limited";
+export type Role = "super_admin" | "admin" | "limited";
+export type FestivalViewerPermissions = {
+  festivalId: string;
+  showBudget: boolean;
+  showDocuments: boolean;
+};
 
 const secretFromEnv = process.env.SESSION_SECRET;
 
@@ -45,6 +50,44 @@ export function signSession(userId: string): string {
   return `${userId}.${signValue(userId)}`;
 }
 
+export function signGuestSession(payload: FestivalViewerPermissions): string {
+  const encodedPayload = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+  return `${encodedPayload}.${signValue(encodedPayload)}`;
+}
+
+function parseGuestSession(cookieValue?: string): FestivalViewerPermissions | null {
+  if (!cookieValue) return null;
+  const dotIdx = cookieValue.lastIndexOf(".");
+  if (dotIdx === -1) return null;
+
+  const encodedPayload = cookieValue.slice(0, dotIdx);
+  const sig = cookieValue.slice(dotIdx + 1);
+  if (!encodedPayload || !sig) return null;
+
+  const expected = signValue(encodedPayload);
+  const sigBuffer = Buffer.from(sig, "utf8");
+  const expectedBuffer = Buffer.from(expected, "utf8");
+
+  if (
+    sigBuffer.length !== expectedBuffer.length ||
+    !crypto.timingSafeEqual(sigBuffer, expectedBuffer)
+  ) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8")) as FestivalViewerPermissions;
+    if (!parsed?.festivalId) return null;
+    return {
+      festivalId: parsed.festivalId,
+      showBudget: Boolean(parsed.showBudget),
+      showDocuments: Boolean(parsed.showDocuments),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function getCurrentUserId(): Promise<string | null> {
   const jar = await cookies();
   return parseSession(jar.get(SESSION_COOKIE)?.value);
@@ -56,7 +99,7 @@ export async function getCurrentUser() {
 
   return prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, name: true, email: true, createdAt: true, updatedAt: true },
+    select: { id: true, name: true, email: true, role: true, createdAt: true, updatedAt: true },
   });
 }
 
@@ -80,7 +123,15 @@ export async function requireCurrentUserPage(from?: string) {
 }
 
 export async function getRole(): Promise<Role> {
-  return (await getCurrentUserId()) ? "admin" : "limited";
+  const user = await getCurrentUser();
+  if (user?.role === "SUPER_ADMIN") return "super_admin";
+  if (user) return "admin";
+  return "limited";
+}
+
+export async function getGuestFestivalPermissions() {
+  const jar = await cookies();
+  return parseGuestSession(jar.get(GUEST_SESSION_COOKIE)?.value);
 }
 
 export async function setSessionCookie(userId: string) {
@@ -94,7 +145,19 @@ export async function setSessionCookie(userId: string) {
   });
 }
 
+export async function setGuestSessionCookie(payload: FestivalViewerPermissions) {
+  const jar = await cookies();
+  jar.set(GUEST_SESSION_COOKIE, signGuestSession(payload), {
+    httpOnly: true,
+    path: "/",
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60 * 24 * 7,
+  });
+}
+
 export async function clearSessionCookie() {
   const jar = await cookies();
   jar.delete(SESSION_COOKIE);
+  jar.delete(GUEST_SESSION_COOKIE);
 }

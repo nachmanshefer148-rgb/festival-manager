@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { createArtist, createArtistContact, createArtistVehicle } from "@/app/actions";
-import { requireOwnedFestivalPage } from "@/lib/access";
+import { requireFestivalAccessPage } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import AddArtistModal from "./AddArtistModal";
 import ArtistsExportButton from "./ArtistsExportButton";
@@ -23,7 +23,7 @@ export default async function ArtistsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  await requireOwnedFestivalPage(id);
+  const access = await requireFestivalAccessPage(id);
 
   const artists = await prisma.artist.findMany({
     where: { festivalId: id },
@@ -44,7 +44,9 @@ export default async function ArtistsPage({
         </div>
         <div className="flex gap-2">
           {artists.length > 0 && <ArtistsExportButton artists={artists} />}
-          <AddArtistModal festivalId={id} createArtist={createArtist} createArtistContact={createArtistContact} createArtistVehicle={createArtistVehicle} />
+          {access.isAdmin && (
+            <AddArtistModal festivalId={id} createArtist={createArtist} createArtistContact={createArtistContact} createArtistVehicle={createArtistVehicle} />
+          )}
         </div>
       </div>
 
@@ -52,7 +54,7 @@ export default async function ArtistsPage({
         <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-12 text-center text-gray-400">
           <div className="text-5xl mb-3">🎤</div>
           <p className="text-lg font-medium">עדיין אין אמנים</p>
-          <p className="text-sm mt-1">הוסף אמן ראשון כדי להתחיל</p>
+          {access.isAdmin && <p className="text-sm mt-1">הוסף אמן ראשון כדי להתחיל</p>}
         </div>
       ) : (
         <div className="space-y-3">

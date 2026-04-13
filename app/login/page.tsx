@@ -5,6 +5,14 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, setSessionCookie } from "@/lib/auth";
 
+function isConfiguredSuperAdmin(email: string) {
+  return (process.env.SUPER_ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(email);
+}
+
 export default async function LoginPage({
   searchParams,
 }: {
@@ -30,7 +38,15 @@ export default async function LoginPage({
       redirect(`/login?error=wrong${from ? `&from=${encodeURIComponent(from)}` : ""}`);
     }
 
-    await setSessionCookie(user.id);
+    const finalUser =
+      user.role === "SUPER_ADMIN" || !isConfiguredSuperAdmin(email)
+        ? user
+        : await prisma.user.update({
+            where: { id: user.id },
+            data: { role: "SUPER_ADMIN" },
+          });
+
+    await setSessionCookie(finalUser.id);
     redirect(redirectTo);
   }
 

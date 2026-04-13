@@ -40,7 +40,7 @@ function getExtension(filename: string): string {
 
 export async function POST(req: NextRequest) {
   const role = await getRole();
-  if (role !== "admin") {
+  if (role !== "admin" && role !== "super_admin") {
     return NextResponse.json({ error: "אין הרשאה" }, { status: 403 });
   }
 

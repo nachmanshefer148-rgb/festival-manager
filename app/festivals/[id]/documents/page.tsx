@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
+import { notFound } from "next/navigation";
 import { createFestivalFile, deleteFestivalFile } from "@/app/actions";
-import { requireOwnedFestivalPage } from "@/lib/access";
+import { requireFestivalAccessPage } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import DocumentsClient from "./DocumentsClient";
 
@@ -10,7 +11,9 @@ export default async function DocumentsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { festival } = await requireOwnedFestivalPage(id);
+  const access = await requireFestivalAccessPage(id);
+  if (!access.canViewDocuments) notFound();
+  const { festival } = access;
 
   const [teamMembers, artists, vendors, stages, festivalFiles, setupTasks, communityContacts] = await Promise.all([
     prisma.teamMember.findMany({
@@ -113,7 +116,7 @@ export default async function DocumentsPage({
       festivalFiles={serializedFestivalFiles}
       setupTasks={setupTasks}
       communityContacts={communityContacts}
-      isAdmin={true}
+      isAdmin={access.isAdmin}
       createFestivalFile={createFestivalFile}
       deleteFestivalFile={deleteFestivalFile}
     />

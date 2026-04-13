@@ -4,27 +4,45 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { addMinutes, formatTime } from "@/lib/utils";
-import { clearSessionCookie, requireCurrentUserId } from "@/lib/auth";
+import {
+  clearSessionCookie,
+  requireCurrentUser,
+  setGuestSessionCookie,
+} from "@/lib/auth";
 import { randomUUID } from "crypto";
 
 async function requireAdmin() {
-  return requireCurrentUserId();
+  return requireCurrentUser();
 }
 
 async function requireOwnedFestival(festivalId: string) {
-  const userId = await requireAdmin();
+  const user = await requireAdmin();
   const festival = await prisma.festival.findFirst({
-    where: { id: festivalId, ownerId: userId },
-    select: { id: true, ownerId: true, inviteToken: true },
+    where: {
+      id: festivalId,
+      ...(user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id }),
+    },
+    select: {
+      id: true,
+      ownerId: true,
+      inviteToken: true,
+      viewerToken: true,
+      viewerAccessEnabled: true,
+      viewerShowBudget: true,
+      viewerShowDocuments: true,
+    },
   });
   if (!festival) throw new Error("אין הרשאה לפסטיבל הזה");
   return festival;
 }
 
 async function requireOwnedArtist(artistId: string) {
-  const userId = await requireAdmin();
+  const user = await requireAdmin();
   const artist = await prisma.artist.findFirst({
-    where: { id: artistId, festival: { ownerId: userId } },
+    where: {
+      id: artistId,
+      festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+    },
     select: { id: true, festivalId: true, name: true },
   });
   if (!artist) throw new Error("אין הרשאה לאמן הזה");
@@ -32,9 +50,12 @@ async function requireOwnedArtist(artistId: string) {
 }
 
 async function requireOwnedStage(stageId: string) {
-  const userId = await requireAdmin();
+  const user = await requireAdmin();
   const stage = await prisma.stage.findFirst({
-    where: { id: stageId, festival: { ownerId: userId } },
+    where: {
+      id: stageId,
+      festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+    },
     select: { id: true, festivalId: true },
   });
   if (!stage) throw new Error("אין הרשאה לבמה הזו");
@@ -42,9 +63,14 @@ async function requireOwnedStage(stageId: string) {
 }
 
 async function requireOwnedTimeSlot(timeSlotId: string) {
-  const userId = await requireAdmin();
+  const user = await requireAdmin();
   const timeSlot = await prisma.timeSlot.findFirst({
-    where: { id: timeSlotId, stage: { festival: { ownerId: userId } } },
+    where: {
+      id: timeSlotId,
+      stage: {
+        festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+      },
+    },
     select: { id: true, stageId: true, stage: { select: { festivalId: true } } },
   });
   if (!timeSlot) throw new Error("אין הרשאה לחריץ הזמן הזה");
@@ -52,9 +78,12 @@ async function requireOwnedTimeSlot(timeSlotId: string) {
 }
 
 async function requireOwnedTeamRole(roleId: string) {
-  const userId = await requireAdmin();
+  const user = await requireAdmin();
   const role = await prisma.teamMemberRole.findFirst({
-    where: { id: roleId, festival: { ownerId: userId } },
+    where: {
+      id: roleId,
+      festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+    },
     select: { id: true, festivalId: true },
   });
   if (!role) throw new Error("אין הרשאה לתפקיד הזה");
@@ -62,9 +91,12 @@ async function requireOwnedTeamRole(roleId: string) {
 }
 
 async function requireOwnedTeamMember(memberId: string) {
-  const userId = await requireAdmin();
+  const user = await requireAdmin();
   const member = await prisma.teamMember.findFirst({
-    where: { id: memberId, festival: { ownerId: userId } },
+    where: {
+      id: memberId,
+      festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+    },
     select: { id: true, festivalId: true },
   });
   if (!member) throw new Error("אין הרשאה לאיש הצוות הזה");
@@ -72,9 +104,12 @@ async function requireOwnedTeamMember(memberId: string) {
 }
 
 async function requireOwnedBudgetItem(itemId: string) {
-  const userId = await requireAdmin();
+  const user = await requireAdmin();
   const item = await prisma.budgetItem.findFirst({
-    where: { id: itemId, festival: { ownerId: userId } },
+    where: {
+      id: itemId,
+      festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+    },
     select: { id: true, festivalId: true },
   });
   if (!item) throw new Error("אין הרשאה לפריט התקציב הזה");
@@ -82,9 +117,12 @@ async function requireOwnedBudgetItem(itemId: string) {
 }
 
 async function requireOwnedTeamApplication(applicationId: string) {
-  const userId = await requireAdmin();
+  const user = await requireAdmin();
   const application = await prisma.teamApplication.findFirst({
-    where: { id: applicationId, festival: { ownerId: userId } },
+    where: {
+      id: applicationId,
+      festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+    },
     select: { id: true, festivalId: true, firstName: true, lastName: true, email: true, phone: true, carNumber: true, notes: true },
   });
   if (!application) throw new Error("אין הרשאה לבקשה הזו");
@@ -92,9 +130,12 @@ async function requireOwnedTeamApplication(applicationId: string) {
 }
 
 async function requireOwnedVendor(vendorId: string) {
-  const userId = await requireAdmin();
+  const user = await requireAdmin();
   const vendor = await prisma.vendor.findFirst({
-    where: { id: vendorId, festival: { ownerId: userId } },
+    where: {
+      id: vendorId,
+      festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+    },
     select: { id: true, festivalId: true, name: true, vendorToken: true },
   });
   if (!vendor) throw new Error("אין הרשאה לספק הזה");
@@ -102,9 +143,14 @@ async function requireOwnedVendor(vendorId: string) {
 }
 
 async function requireOwnedArtistPayment(paymentId: string) {
-  const userId = await requireAdmin();
+  const user = await requireAdmin();
   const payment = await prisma.artistPayment.findFirst({
-    where: { id: paymentId, artist: { festival: { ownerId: userId } } },
+    where: {
+      id: paymentId,
+      artist: {
+        festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+      },
+    },
     select: { id: true, artistId: true, budgetItemId: true, isPaid: true, artist: { select: { festivalId: true } } },
   });
   if (!payment) throw new Error("אין הרשאה לתשלום הזה");
@@ -112,9 +158,14 @@ async function requireOwnedArtistPayment(paymentId: string) {
 }
 
 async function requireOwnedVendorPayment(paymentId: string) {
-  const userId = await requireAdmin();
+  const user = await requireAdmin();
   const payment = await prisma.vendorPayment.findFirst({
-    where: { id: paymentId, vendor: { festival: { ownerId: userId } } },
+    where: {
+      id: paymentId,
+      vendor: {
+        festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+      },
+    },
     select: { id: true, vendorId: true, budgetItemId: true, isPaid: true, vendor: { select: { festivalId: true } } },
   });
   if (!payment) throw new Error("אין הרשאה לתשלום הזה");
@@ -122,9 +173,12 @@ async function requireOwnedVendorPayment(paymentId: string) {
 }
 
 async function requireOwnedSetupTask(taskId: string) {
-  const userId = await requireAdmin();
+  const user = await requireAdmin();
   const task = await prisma.festivalSetupTask.findFirst({
-    where: { id: taskId, festival: { ownerId: userId } },
+    where: {
+      id: taskId,
+      festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+    },
     select: { id: true, festivalId: true },
   });
   if (!task) throw new Error("אין הרשאה למשימה הזו");
@@ -132,9 +186,12 @@ async function requireOwnedSetupTask(taskId: string) {
 }
 
 async function requireOwnedCommunityContact(contactId: string) {
-  const userId = await requireAdmin();
+  const user = await requireAdmin();
   const contact = await prisma.festivalCommunityContact.findFirst({
-    where: { id: contactId, festival: { ownerId: userId } },
+    where: {
+      id: contactId,
+      festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+    },
     select: { id: true, festivalId: true },
   });
   if (!contact) throw new Error("אין הרשאה לאיש הקשר הזה");
@@ -142,9 +199,14 @@ async function requireOwnedCommunityContact(contactId: string) {
 }
 
 async function requireOwnedArtistContact(contactId: string) {
-  const userId = await requireAdmin();
+  const user = await requireAdmin();
   const contact = await prisma.artistContact.findFirst({
-    where: { id: contactId, artist: { festival: { ownerId: userId } } },
+    where: {
+      id: contactId,
+      artist: {
+        festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+      },
+    },
     select: { id: true, artistId: true, artist: { select: { festivalId: true } } },
   });
   if (!contact) throw new Error("אין הרשאה לאיש הקשר הזה");
@@ -152,9 +214,14 @@ async function requireOwnedArtistContact(contactId: string) {
 }
 
 async function requireOwnedArtistVehicle(vehicleId: string) {
-  const userId = await requireAdmin();
+  const user = await requireAdmin();
   const vehicle = await prisma.artistVehicle.findFirst({
-    where: { id: vehicleId, artist: { festival: { ownerId: userId } } },
+    where: {
+      id: vehicleId,
+      artist: {
+        festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+      },
+    },
     select: { id: true, artistId: true, artist: { select: { festivalId: true } } },
   });
   if (!vehicle) throw new Error("אין הרשאה לרכב הזה");
@@ -162,9 +229,14 @@ async function requireOwnedArtistVehicle(vehicleId: string) {
 }
 
 async function requireOwnedArtistFile(fileId: string) {
-  const userId = await requireAdmin();
+  const user = await requireAdmin();
   const file = await prisma.artistFile.findFirst({
-    where: { id: fileId, artist: { festival: { ownerId: userId } } },
+    where: {
+      id: fileId,
+      artist: {
+        festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+      },
+    },
     select: { id: true, artistId: true, artist: { select: { festivalId: true } } },
   });
   if (!file) throw new Error("אין הרשאה לקובץ הזה");
@@ -172,9 +244,14 @@ async function requireOwnedArtistFile(fileId: string) {
 }
 
 async function requireOwnedStageFile(fileId: string) {
-  const userId = await requireAdmin();
+  const user = await requireAdmin();
   const file = await prisma.stageFile.findFirst({
-    where: { id: fileId, stage: { festival: { ownerId: userId } } },
+    where: {
+      id: fileId,
+      stage: {
+        festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+      },
+    },
     select: { id: true, stageId: true, stage: { select: { festivalId: true } } },
   });
   if (!file) throw new Error("אין הרשאה לקובץ הזה");
@@ -182,9 +259,12 @@ async function requireOwnedStageFile(fileId: string) {
 }
 
 async function requireOwnedFestivalFile(fileId: string) {
-  const userId = await requireAdmin();
+  const user = await requireAdmin();
   const file = await prisma.festivalFile.findFirst({
-    where: { id: fileId, festival: { ownerId: userId } },
+    where: {
+      id: fileId,
+      festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+    },
     select: { id: true, festivalId: true },
   });
   if (!file) throw new Error("אין הרשאה לקובץ הזה");
@@ -192,9 +272,14 @@ async function requireOwnedFestivalFile(fileId: string) {
 }
 
 async function requireOwnedVendorContact(contactId: string) {
-  const userId = await requireAdmin();
+  const user = await requireAdmin();
   const contact = await prisma.vendorContact.findFirst({
-    where: { id: contactId, vendor: { festival: { ownerId: userId } } },
+    where: {
+      id: contactId,
+      vendor: {
+        festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+      },
+    },
     select: { id: true, vendor: { select: { festivalId: true, id: true } } },
   });
   if (!contact) throw new Error("אין הרשאה לאיש הקשר הזה");
@@ -202,9 +287,14 @@ async function requireOwnedVendorContact(contactId: string) {
 }
 
 async function requireOwnedVendorVehicle(vehicleId: string) {
-  const userId = await requireAdmin();
+  const user = await requireAdmin();
   const vehicle = await prisma.vendorVehicle.findFirst({
-    where: { id: vehicleId, vendor: { festival: { ownerId: userId } } },
+    where: {
+      id: vehicleId,
+      vendor: {
+        festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+      },
+    },
     select: { id: true, vendor: { select: { festivalId: true, id: true } } },
   });
   if (!vehicle) throw new Error("אין הרשאה לרכב הזה");
@@ -212,9 +302,14 @@ async function requireOwnedVendorVehicle(vehicleId: string) {
 }
 
 async function requireOwnedVendorFile(fileId: string) {
-  const userId = await requireAdmin();
+  const user = await requireAdmin();
   const file = await prisma.vendorFile.findFirst({
-    where: { id: fileId, vendor: { festival: { ownerId: userId } } },
+    where: {
+      id: fileId,
+      vendor: {
+        festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+      },
+    },
     select: { id: true, vendor: { select: { festivalId: true, id: true } } },
   });
   if (!file) throw new Error("אין הרשאה לקובץ הזה");
@@ -271,7 +366,7 @@ export async function logout() {
 // ─── Festivals ───────────────────────────────────────────────────────────────
 
 export async function createFestival(formData: FormData) {
-  const userId = await requireAdmin();
+  const user = await requireAdmin();
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const location = formData.get("location") as string;
@@ -280,7 +375,7 @@ export async function createFestival(formData: FormData) {
 
   const festival = await prisma.festival.create({
     data: {
-      ownerId: userId,
+      ownerId: user.id,
       name,
       description: description || null,
       location,
@@ -980,6 +1075,70 @@ export async function generateInviteToken(festivalId: string) {
   });
   revalidatePath(`/festivals/${festivalId}/team`);
   return token;
+}
+
+export async function saveFestivalViewerAccess(festivalId: string, formData: FormData) {
+  const festival = await requireOwnedFestival(festivalId);
+  const viewerAccessEnabled = formData.get("viewerAccessEnabled") === "on";
+  const viewerShowBudget = viewerAccessEnabled && formData.get("viewerShowBudget") === "on";
+  const viewerShowDocuments = viewerAccessEnabled && formData.get("viewerShowDocuments") === "on";
+  const viewerToken =
+    viewerAccessEnabled ? festival.viewerToken ?? randomUUID() : null;
+
+  await prisma.festival.update({
+    where: { id: festivalId },
+    data: {
+      viewerAccessEnabled,
+      viewerShowBudget,
+      viewerShowDocuments,
+      viewerToken,
+    },
+  });
+
+  revalidatePath(`/festivals/${festivalId}/team`);
+  revalidatePath(`/festivals/${festivalId}`);
+}
+
+export async function generateFestivalViewerToken(festivalId: string) {
+  const festival = await requireOwnedFestival(festivalId);
+  const token = festival.viewerToken ?? randomUUID();
+
+  await prisma.festival.update({
+    where: { id: festivalId },
+    data: {
+      viewerToken: token,
+      viewerAccessEnabled: true,
+    },
+  });
+
+  revalidatePath(`/festivals/${festivalId}/team`);
+  return token;
+}
+
+export async function enterFestivalViewer(token: string) {
+  const festival = await prisma.festival.findFirst({
+    where: {
+      viewerToken: token,
+      viewerAccessEnabled: true,
+    },
+    select: {
+      id: true,
+      viewerShowBudget: true,
+      viewerShowDocuments: true,
+    },
+  });
+
+  if (!festival) {
+    throw new Error("לינק צפייה לא תקין");
+  }
+
+  await setGuestSessionCookie({
+    festivalId: festival.id,
+    showBudget: festival.viewerShowBudget,
+    showDocuments: festival.viewerShowDocuments,
+  });
+
+  redirect(`/festivals/${festival.id}`);
 }
 
 export async function submitTeamApplication(token: string, formData: FormData) {

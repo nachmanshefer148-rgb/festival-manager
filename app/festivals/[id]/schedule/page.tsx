@@ -10,7 +10,7 @@ import {
   updateTimeSlot,
   updateTimeSlotStatus,
 } from "@/app/actions";
-import { requireOwnedFestivalPage } from "@/lib/access";
+import { requireFestivalAccessPage } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import ScheduleClient from "./ScheduleClient";
 
@@ -20,7 +20,7 @@ export default async function SchedulePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { festival } = await requireOwnedFestivalPage(id);
+  const { festival, isAdmin } = await requireFestivalAccessPage(id);
 
   const [stages, artists, setupTasks] = await Promise.all([
     prisma.stage.findMany({
@@ -63,7 +63,7 @@ export default async function SchedulePage({
         })),
       }))}
       artists={artists}
-      isAdmin={true}
+      isAdmin={isAdmin}
       setupTasks={setupTasks}
       createStage={createStage}
       deleteStage={deleteStage}
