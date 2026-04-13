@@ -1,23 +1,21 @@
-export const dynamic = 'force-dynamic';
-import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
-import { getRole } from "@/lib/auth";
-import { getAppSettings } from "@/lib/settings";
+export const dynamic = "force-dynamic";
 import {
   createVendor,
-  updateVendor,
-  deleteVendor,
   createVendorContact,
-  deleteVendorContact,
-  createVendorVehicle,
-  deleteVendorVehicle,
-  createVendorPayment,
-  toggleVendorPayment,
-  deleteVendorPayment,
   createVendorFile,
+  createVendorPayment,
+  createVendorVehicle,
+  deleteVendor,
+  deleteVendorContact,
   deleteVendorFile,
+  deleteVendorPayment,
+  deleteVendorVehicle,
   getVendorDetails,
+  toggleVendorPayment,
+  updateVendor,
 } from "@/app/actions";
+import { requireOwnedFestivalPage } from "@/lib/access";
+import { prisma } from "@/lib/prisma";
 import VendorClient from "./VendorClient";
 
 export default async function VendorsPage({
@@ -26,16 +24,8 @@ export default async function VendorsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  await requireOwnedFestivalPage(id);
 
-  const [festival, role, settings] = await Promise.all([
-    prisma.festival.findUnique({ where: { id } }),
-    getRole(),
-    getAppSettings(),
-  ]);
-
-  if (!festival) notFound();
-
-  // Fetch only summary fields + counts — no nested contacts/vehicles/payments/files
   const vendors = await prisma.vendor.findMany({
     where: { festivalId: id },
     select: {
@@ -53,20 +43,18 @@ export default async function VendorsPage({
     orderBy: { createdAt: "desc" },
   });
 
-  const serialized = vendors.map((v) => ({
-    ...v,
-    createdAt: v.createdAt.toISOString(),
+  const serialized = vendors.map((vendor) => ({
+    ...vendor,
+    createdAt: vendor.createdAt.toISOString(),
   }));
-
-  const showFinancials = role !== "limited" || (settings?.showBudget ?? true);
 
   return (
     <VendorClient
       festivalId={id}
       vendors={serialized}
-      isAdmin={role === "admin"}
-      canAccessFiles={role !== "limited"}
-      showFinancials={showFinancials}
+      isAdmin={true}
+      canAccessFiles={true}
+      showFinancials={true}
       createVendor={createVendor}
       updateVendor={updateVendor}
       deleteVendor={deleteVendor}

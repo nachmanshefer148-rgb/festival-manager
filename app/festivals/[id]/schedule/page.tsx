@@ -1,9 +1,18 @@
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
+import {
+  createSetupTask,
+  createStage,
+  createTimeSlot,
+  deleteSetupTask,
+  deleteStage,
+  deleteTimeSlot,
+  updateSetupTask,
+  updateTimeSlot,
+  updateTimeSlotStatus,
+} from "@/app/actions";
+import { requireOwnedFestivalPage } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
-import { createStage, deleteStage, createTimeSlot, deleteTimeSlot, updateTimeSlotStatus, updateTimeSlot, createSetupTask, updateSetupTask, deleteSetupTask } from "@/app/actions";
 import ScheduleClient from "./ScheduleClient";
-import { getRole } from "@/lib/auth";
 
 export default async function SchedulePage({
   params,
@@ -11,12 +20,7 @@ export default async function SchedulePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [festival, role] = await Promise.all([
-    prisma.festival.findUnique({ where: { id } }),
-    getRole(),
-  ]);
-  if (!festival) notFound();
-  const isAdmin = role === "admin";
+  const { festival } = await requireOwnedFestivalPage(id);
 
   const [stages, artists, setupTasks] = await Promise.all([
     prisma.stage.findMany({
@@ -43,23 +47,23 @@ export default async function SchedulePage({
     <ScheduleClient
       festivalId={id}
       festival={{ startDate: festival.startDate.toISOString(), endDate: festival.endDate.toISOString() }}
-      stages={stages.map((s) => ({
-        id: s.id,
-        name: s.name,
-        capacity: s.capacity,
-        soundcheckStart: s.soundcheckStart,
-        soundcheckEnd: s.soundcheckEnd,
-        performancesStart: s.performancesStart,
-        performancesEnd: s.performancesEnd,
-        timeSlots: s.timeSlots.map((ts) => ({
-          ...ts,
-          startTime: ts.startTime.toISOString(),
-          endTime: ts.endTime.toISOString(),
-          artist: ts.artist ? { ...ts.artist } : null,
+      stages={stages.map((stage) => ({
+        id: stage.id,
+        name: stage.name,
+        capacity: stage.capacity,
+        soundcheckStart: stage.soundcheckStart,
+        soundcheckEnd: stage.soundcheckEnd,
+        performancesStart: stage.performancesStart,
+        performancesEnd: stage.performancesEnd,
+        timeSlots: stage.timeSlots.map((slot) => ({
+          ...slot,
+          startTime: slot.startTime.toISOString(),
+          endTime: slot.endTime.toISOString(),
+          artist: slot.artist ? { ...slot.artist } : null,
         })),
       }))}
       artists={artists}
-      isAdmin={isAdmin}
+      isAdmin={true}
       setupTasks={setupTasks}
       createStage={createStage}
       deleteStage={deleteStage}

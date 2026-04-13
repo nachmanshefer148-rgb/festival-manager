@@ -1,11 +1,11 @@
 export const dynamic = 'force-dynamic';
 import { get } from "@vercel/blob";
 import { NextRequest, NextResponse } from "next/server";
-import { getRole, isAuthenticatedRole } from "@/lib/auth";
+import { getCurrentUserId } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
-  const role = await getRole();
-  if (!isAuthenticatedRole(role)) {
+  const userId = await getCurrentUserId();
+  if (!userId) {
     return NextResponse.json({ error: "נדרשת התחברות כדי לצפות בקובץ" }, { status: 403 });
   }
 

@@ -1,22 +1,21 @@
-export const dynamic = 'force-dynamic';
-import { prisma } from "@/lib/prisma";
+export const dynamic = "force-dynamic";
 import { notFound } from "next/navigation";
-import { getRole } from "@/lib/auth";
-import { getAppSettings } from "@/lib/settings";
 import {
+  createArtistContact,
+  createArtistFile,
+  createArtistPayment,
+  createArtistVehicle,
+  deleteArtist,
+  deleteArtistContact,
+  deleteArtistFile,
+  deleteArtistPayment,
+  deleteArtistVehicle,
+  toggleArtistPayment,
   updateArtist,
   updateArtistImage,
-  deleteArtist,
-  createArtistContact,
-  deleteArtistContact,
-  createArtistVehicle,
-  deleteArtistVehicle,
-  createArtistFile,
-  deleteArtistFile,
-  createArtistPayment,
-  toggleArtistPayment,
-  deleteArtistPayment,
 } from "@/app/actions";
+import { requireOwnedFestivalPage } from "@/lib/access";
+import { prisma } from "@/lib/prisma";
 import ArtistDetailClient from "./ArtistDetailClient";
 
 export default async function ArtistDetailPage({
@@ -25,28 +24,24 @@ export default async function ArtistDetailPage({
   params: Promise<{ id: string; artistId: string }>;
 }) {
   const { id, artistId } = await params;
+  await requireOwnedFestivalPage(id);
 
-  const [role, settings, artist] = await Promise.all([
-    getRole(),
-    getAppSettings(),
-    prisma.artist.findUnique({
-      where: { id: artistId },
-      include: {
-        timeSlots: {
-          include: { stage: true },
-          orderBy: { startTime: "asc" },
-        },
-        contacts: true,
-        vehicles: true,
-        files: { orderBy: { createdAt: "desc" } },
-        payments: { orderBy: { dueDate: "asc" } },
+  const artist = await prisma.artist.findUnique({
+    where: { id: artistId },
+    include: {
+      timeSlots: {
+        include: { stage: true },
+        orderBy: { startTime: "asc" },
       },
-    }),
-  ]);
+      contacts: true,
+      vehicles: true,
+      files: { orderBy: { createdAt: "desc" } },
+      payments: { orderBy: { dueDate: "asc" } },
+    },
+  });
 
   if (!artist || artist.festivalId !== id) notFound();
 
-  // Serialize dates
   const serialized = {
     ...artist,
     timeSlots: artist.timeSlots.map((ts) => ({
@@ -64,15 +59,13 @@ export default async function ArtistDetailPage({
     })),
   };
 
-  const showFinancials = role !== "limited" || (settings?.showBudget ?? true);
-
   return (
     <ArtistDetailClient
       festivalId={id}
       artist={serialized}
-      isAdmin={role === "admin"}
-      canAccessFiles={role !== "limited"}
-      showFinancials={showFinancials}
+      isAdmin={true}
+      canAccessFiles={true}
+      showFinancials={true}
       updateArtist={updateArtist}
       updateArtistImage={updateArtistImage}
       deleteArtist={deleteArtist}

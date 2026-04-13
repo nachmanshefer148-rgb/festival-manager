@@ -1,21 +1,20 @@
-export const dynamic = 'force-dynamic';
-import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
+export const dynamic = "force-dynamic";
 import {
+  approveTeamApplication,
+  createCommunityContact,
   createTeamMember,
-  deleteTeamMember,
-  updateTeamMember,
   createTeamRole,
+  deleteCommunityContact,
+  deleteTeamMember,
   deleteTeamRole,
   generateInviteToken,
-  approveTeamApplication,
   rejectTeamApplication,
-  createCommunityContact,
   updateCommunityContact,
-  deleteCommunityContact,
+  updateTeamMember,
 } from "@/app/actions";
+import { requireOwnedFestivalPage } from "@/lib/access";
+import { prisma } from "@/lib/prisma";
 import TeamClient from "./TeamClient";
-import { getRole } from "@/lib/auth";
 
 export default async function TeamPage({
   params,
@@ -23,12 +22,7 @@ export default async function TeamPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [festival, role] = await Promise.all([
-    prisma.festival.findUnique({ where: { id } }),
-    getRole(),
-  ]);
-  if (!festival) notFound();
-  const isAdmin = role === "admin";
+  const { festival } = await requireOwnedFestivalPage(id);
 
   const [members, roles, applications, communityContacts] = await Promise.all([
     prisma.teamMember.findMany({
@@ -55,7 +49,7 @@ export default async function TeamPage({
       festivalId={id}
       members={members}
       roles={roles}
-      isAdmin={isAdmin}
+      isAdmin={true}
       inviteToken={festival.inviteToken}
       applications={applications}
       createTeamMember={createTeamMember}

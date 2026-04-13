@@ -1,14 +1,7 @@
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
+import { createStage, createStageFile, deleteStage, deleteStageFile, updateStage } from "@/app/actions";
+import { requireOwnedFestivalPage } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
-import { getRole } from "@/lib/auth";
-import {
-  createStage,
-  updateStage,
-  deleteStage,
-  createStageFile,
-  deleteStageFile,
-} from "@/app/actions";
 import StagesClient from "./StagesClient";
 
 export default async function StagesPage({
@@ -17,10 +10,9 @@ export default async function StagesPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  await requireOwnedFestivalPage(id);
 
-  const [role, festival, stages, teamMembers] = await Promise.all([
-    getRole(),
-    prisma.festival.findUnique({ where: { id } }),
+  const [stages, teamMembers] = await Promise.all([
     prisma.stage.findMany({
       where: { festivalId: id },
       include: {
@@ -36,11 +28,9 @@ export default async function StagesPage({
     }),
   ]);
 
-  if (!festival) notFound();
-
-  const serializedStages = stages.map((s) => ({
-    ...s,
-    files: s.files.map((f) => ({ ...f, createdAt: f.createdAt.toISOString() })),
+  const serializedStages = stages.map((stage) => ({
+    ...stage,
+    files: stage.files.map((file) => ({ ...file, createdAt: file.createdAt.toISOString() })),
   }));
 
   return (
@@ -48,8 +38,8 @@ export default async function StagesPage({
       festivalId={id}
       stages={serializedStages}
       teamMembers={teamMembers}
-      isAdmin={role === "admin"}
-      canAccessFiles={role !== "limited"}
+      isAdmin={true}
+      canAccessFiles={true}
       createStage={createStage}
       updateStage={updateStage}
       deleteStage={deleteStage}

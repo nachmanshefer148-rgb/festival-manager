@@ -4,12 +4,227 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { addMinutes, formatTime } from "@/lib/utils";
-import { getRole, clearSessionCookie } from "@/lib/auth";
+import { clearSessionCookie, requireCurrentUserId } from "@/lib/auth";
 import { randomUUID } from "crypto";
 
 async function requireAdmin() {
-  const role = await getRole();
-  if (role !== "admin") throw new Error("אין הרשאה");
+  return requireCurrentUserId();
+}
+
+async function requireOwnedFestival(festivalId: string) {
+  const userId = await requireAdmin();
+  const festival = await prisma.festival.findFirst({
+    where: { id: festivalId, ownerId: userId },
+    select: { id: true, ownerId: true, inviteToken: true },
+  });
+  if (!festival) throw new Error("אין הרשאה לפסטיבל הזה");
+  return festival;
+}
+
+async function requireOwnedArtist(artistId: string) {
+  const userId = await requireAdmin();
+  const artist = await prisma.artist.findFirst({
+    where: { id: artistId, festival: { ownerId: userId } },
+    select: { id: true, festivalId: true, name: true },
+  });
+  if (!artist) throw new Error("אין הרשאה לאמן הזה");
+  return artist;
+}
+
+async function requireOwnedStage(stageId: string) {
+  const userId = await requireAdmin();
+  const stage = await prisma.stage.findFirst({
+    where: { id: stageId, festival: { ownerId: userId } },
+    select: { id: true, festivalId: true },
+  });
+  if (!stage) throw new Error("אין הרשאה לבמה הזו");
+  return stage;
+}
+
+async function requireOwnedTimeSlot(timeSlotId: string) {
+  const userId = await requireAdmin();
+  const timeSlot = await prisma.timeSlot.findFirst({
+    where: { id: timeSlotId, stage: { festival: { ownerId: userId } } },
+    select: { id: true, stageId: true, stage: { select: { festivalId: true } } },
+  });
+  if (!timeSlot) throw new Error("אין הרשאה לחריץ הזמן הזה");
+  return timeSlot;
+}
+
+async function requireOwnedTeamRole(roleId: string) {
+  const userId = await requireAdmin();
+  const role = await prisma.teamMemberRole.findFirst({
+    where: { id: roleId, festival: { ownerId: userId } },
+    select: { id: true, festivalId: true },
+  });
+  if (!role) throw new Error("אין הרשאה לתפקיד הזה");
+  return role;
+}
+
+async function requireOwnedTeamMember(memberId: string) {
+  const userId = await requireAdmin();
+  const member = await prisma.teamMember.findFirst({
+    where: { id: memberId, festival: { ownerId: userId } },
+    select: { id: true, festivalId: true },
+  });
+  if (!member) throw new Error("אין הרשאה לאיש הצוות הזה");
+  return member;
+}
+
+async function requireOwnedBudgetItem(itemId: string) {
+  const userId = await requireAdmin();
+  const item = await prisma.budgetItem.findFirst({
+    where: { id: itemId, festival: { ownerId: userId } },
+    select: { id: true, festivalId: true },
+  });
+  if (!item) throw new Error("אין הרשאה לפריט התקציב הזה");
+  return item;
+}
+
+async function requireOwnedTeamApplication(applicationId: string) {
+  const userId = await requireAdmin();
+  const application = await prisma.teamApplication.findFirst({
+    where: { id: applicationId, festival: { ownerId: userId } },
+    select: { id: true, festivalId: true, firstName: true, lastName: true, email: true, phone: true, carNumber: true, notes: true },
+  });
+  if (!application) throw new Error("אין הרשאה לבקשה הזו");
+  return application;
+}
+
+async function requireOwnedVendor(vendorId: string) {
+  const userId = await requireAdmin();
+  const vendor = await prisma.vendor.findFirst({
+    where: { id: vendorId, festival: { ownerId: userId } },
+    select: { id: true, festivalId: true, name: true, vendorToken: true },
+  });
+  if (!vendor) throw new Error("אין הרשאה לספק הזה");
+  return vendor;
+}
+
+async function requireOwnedArtistPayment(paymentId: string) {
+  const userId = await requireAdmin();
+  const payment = await prisma.artistPayment.findFirst({
+    where: { id: paymentId, artist: { festival: { ownerId: userId } } },
+    select: { id: true, artistId: true, budgetItemId: true, isPaid: true, artist: { select: { festivalId: true } } },
+  });
+  if (!payment) throw new Error("אין הרשאה לתשלום הזה");
+  return payment;
+}
+
+async function requireOwnedVendorPayment(paymentId: string) {
+  const userId = await requireAdmin();
+  const payment = await prisma.vendorPayment.findFirst({
+    where: { id: paymentId, vendor: { festival: { ownerId: userId } } },
+    select: { id: true, vendorId: true, budgetItemId: true, isPaid: true, vendor: { select: { festivalId: true } } },
+  });
+  if (!payment) throw new Error("אין הרשאה לתשלום הזה");
+  return payment;
+}
+
+async function requireOwnedSetupTask(taskId: string) {
+  const userId = await requireAdmin();
+  const task = await prisma.festivalSetupTask.findFirst({
+    where: { id: taskId, festival: { ownerId: userId } },
+    select: { id: true, festivalId: true },
+  });
+  if (!task) throw new Error("אין הרשאה למשימה הזו");
+  return task;
+}
+
+async function requireOwnedCommunityContact(contactId: string) {
+  const userId = await requireAdmin();
+  const contact = await prisma.festivalCommunityContact.findFirst({
+    where: { id: contactId, festival: { ownerId: userId } },
+    select: { id: true, festivalId: true },
+  });
+  if (!contact) throw new Error("אין הרשאה לאיש הקשר הזה");
+  return contact;
+}
+
+async function requireOwnedArtistContact(contactId: string) {
+  const userId = await requireAdmin();
+  const contact = await prisma.artistContact.findFirst({
+    where: { id: contactId, artist: { festival: { ownerId: userId } } },
+    select: { id: true, artistId: true, artist: { select: { festivalId: true } } },
+  });
+  if (!contact) throw new Error("אין הרשאה לאיש הקשר הזה");
+  return contact;
+}
+
+async function requireOwnedArtistVehicle(vehicleId: string) {
+  const userId = await requireAdmin();
+  const vehicle = await prisma.artistVehicle.findFirst({
+    where: { id: vehicleId, artist: { festival: { ownerId: userId } } },
+    select: { id: true, artistId: true, artist: { select: { festivalId: true } } },
+  });
+  if (!vehicle) throw new Error("אין הרשאה לרכב הזה");
+  return vehicle;
+}
+
+async function requireOwnedArtistFile(fileId: string) {
+  const userId = await requireAdmin();
+  const file = await prisma.artistFile.findFirst({
+    where: { id: fileId, artist: { festival: { ownerId: userId } } },
+    select: { id: true, artistId: true, artist: { select: { festivalId: true } } },
+  });
+  if (!file) throw new Error("אין הרשאה לקובץ הזה");
+  return file;
+}
+
+async function requireOwnedStageFile(fileId: string) {
+  const userId = await requireAdmin();
+  const file = await prisma.stageFile.findFirst({
+    where: { id: fileId, stage: { festival: { ownerId: userId } } },
+    select: { id: true, stageId: true, stage: { select: { festivalId: true } } },
+  });
+  if (!file) throw new Error("אין הרשאה לקובץ הזה");
+  return file;
+}
+
+async function requireOwnedFestivalFile(fileId: string) {
+  const userId = await requireAdmin();
+  const file = await prisma.festivalFile.findFirst({
+    where: { id: fileId, festival: { ownerId: userId } },
+    select: { id: true, festivalId: true },
+  });
+  if (!file) throw new Error("אין הרשאה לקובץ הזה");
+  return file;
+}
+
+async function requireOwnedVendorContact(contactId: string) {
+  const userId = await requireAdmin();
+  const contact = await prisma.vendorContact.findFirst({
+    where: { id: contactId, vendor: { festival: { ownerId: userId } } },
+    select: { id: true, vendor: { select: { festivalId: true, id: true } } },
+  });
+  if (!contact) throw new Error("אין הרשאה לאיש הקשר הזה");
+  return contact;
+}
+
+async function requireOwnedVendorVehicle(vehicleId: string) {
+  const userId = await requireAdmin();
+  const vehicle = await prisma.vendorVehicle.findFirst({
+    where: { id: vehicleId, vendor: { festival: { ownerId: userId } } },
+    select: { id: true, vendor: { select: { festivalId: true, id: true } } },
+  });
+  if (!vehicle) throw new Error("אין הרשאה לרכב הזה");
+  return vehicle;
+}
+
+async function requireOwnedVendorFile(fileId: string) {
+  const userId = await requireAdmin();
+  const file = await prisma.vendorFile.findFirst({
+    where: { id: fileId, vendor: { festival: { ownerId: userId } } },
+    select: { id: true, vendor: { select: { festivalId: true, id: true } } },
+  });
+  if (!file) throw new Error("אין הרשאה לקובץ הזה");
+  return file;
+}
+
+function assertFestivalMatch(actualFestivalId: string, expectedFestivalId: string) {
+  if (actualFestivalId !== expectedFestivalId) {
+    throw new Error("אי התאמה בין משאב לפסטיבל");
+  }
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -56,7 +271,7 @@ export async function logout() {
 // ─── Festivals ───────────────────────────────────────────────────────────────
 
 export async function createFestival(formData: FormData) {
-  await requireAdmin();
+  const userId = await requireAdmin();
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const location = formData.get("location") as string;
@@ -65,6 +280,7 @@ export async function createFestival(formData: FormData) {
 
   const festival = await prisma.festival.create({
     data: {
+      ownerId: userId,
       name,
       description: description || null,
       location,
@@ -77,7 +293,7 @@ export async function createFestival(formData: FormData) {
 }
 
 export async function updateFestival(id: string, formData: FormData) {
-  await requireAdmin();
+  await requireOwnedFestival(id);
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const location = formData.get("location") as string;
@@ -100,7 +316,7 @@ export async function updateFestival(id: string, formData: FormData) {
 }
 
 export async function deleteFestival(id: string) {
-  await requireAdmin();
+  await requireOwnedFestival(id);
   await prisma.festival.delete({ where: { id } });
   revalidatePath("/");
 }
@@ -110,6 +326,7 @@ export async function deleteFestival(id: string) {
 export async function createArtist(formData: FormData): Promise<{ id: string }> {
   await requireAdmin();
   const festivalId = formData.get("festivalId") as string;
+  await requireOwnedFestival(festivalId);
 
   const artist = await prisma.artist.create({
     data: {
@@ -131,6 +348,7 @@ export async function createArtist(formData: FormData): Promise<{ id: string }> 
 
 export async function updateArtistImage(artistId: string, imageUrl: string) {
   await requireAdmin();
+  await requireOwnedArtist(artistId);
   const artist = await prisma.artist.update({
     where: { id: artistId },
     data: { profileImageUrl: imageUrl },
@@ -141,7 +359,7 @@ export async function updateArtistImage(artistId: string, imageUrl: string) {
 
 export async function updateArtist(id: string, formData: FormData) {
   await requireAdmin();
-  const artist = await prisma.artist.findUniqueOrThrow({ where: { id } });
+  const artist = await requireOwnedArtist(id);
 
   await prisma.artist.update({
     where: { id },
@@ -184,7 +402,8 @@ export async function updateArtist(id: string, formData: FormData) {
 }
 
 export async function deleteArtist(id: string, festivalId: string) {
-  await requireAdmin();
+  const artist = await requireOwnedArtist(id);
+  assertFestivalMatch(artist.festivalId, festivalId);
   await prisma.artist.delete({ where: { id } });
   revalidatePath(`/festivals/${festivalId}/artists`);
 }
@@ -192,7 +411,8 @@ export async function deleteArtist(id: string, festivalId: string) {
 // ─── Artist Contacts ──────────────────────────────────────────────────────────
 
 export async function createArtistContact(artistId: string, festivalId: string, formData: FormData) {
-  await requireAdmin();
+  const artist = await requireOwnedArtist(artistId);
+  assertFestivalMatch(artist.festivalId, festivalId);
   await prisma.artistContact.create({
     data: {
       artistId,
@@ -207,7 +427,9 @@ export async function createArtistContact(artistId: string, festivalId: string, 
 }
 
 export async function updateArtistContact(id: string, artistId: string, festivalId: string, formData: FormData) {
-  await requireAdmin();
+  const contact = await requireOwnedArtistContact(id);
+  assertFestivalMatch(contact.artist.festivalId, festivalId);
+  if (contact.artistId !== artistId) throw new Error("אי התאמה בין איש קשר לאמן");
   await prisma.artistContact.update({
     where: { id },
     data: {
@@ -222,7 +444,9 @@ export async function updateArtistContact(id: string, artistId: string, festival
 }
 
 export async function deleteArtistContact(id: string, artistId: string, festivalId: string) {
-  await requireAdmin();
+  const contact = await requireOwnedArtistContact(id);
+  assertFestivalMatch(contact.artist.festivalId, festivalId);
+  if (contact.artistId !== artistId) throw new Error("אי התאמה בין איש קשר לאמן");
   await prisma.artistContact.delete({ where: { id } });
   revalidatePath(`/festivals/${festivalId}/artists/${artistId}`);
 }
@@ -230,7 +454,8 @@ export async function deleteArtistContact(id: string, artistId: string, festival
 // ─── Artist Vehicles ──────────────────────────────────────────────────────────
 
 export async function createArtistVehicle(artistId: string, festivalId: string, formData: FormData) {
-  await requireAdmin();
+  const artist = await requireOwnedArtist(artistId);
+  assertFestivalMatch(artist.festivalId, festivalId);
   await prisma.artistVehicle.create({
     data: {
       artistId,
@@ -243,7 +468,9 @@ export async function createArtistVehicle(artistId: string, festivalId: string, 
 }
 
 export async function deleteArtistVehicle(id: string, artistId: string, festivalId: string) {
-  await requireAdmin();
+  const vehicle = await requireOwnedArtistVehicle(id);
+  assertFestivalMatch(vehicle.artist.festivalId, festivalId);
+  if (vehicle.artistId !== artistId) throw new Error("אי התאמה בין רכב לאמן");
   await prisma.artistVehicle.delete({ where: { id } });
   revalidatePath(`/festivals/${festivalId}/artists/${artistId}`);
 }
@@ -258,7 +485,8 @@ export async function createArtistFile(
   isExternal: boolean,
   fileType: string
 ) {
-  await requireAdmin();
+  const artist = await requireOwnedArtist(artistId);
+  assertFestivalMatch(artist.festivalId, festivalId);
   await prisma.artistFile.create({
     data: { artistId, name, url, isExternal, fileType: fileType || null },
   });
@@ -266,7 +494,9 @@ export async function createArtistFile(
 }
 
 export async function deleteArtistFile(id: string, artistId: string, festivalId: string) {
-  await requireAdmin();
+  const file = await requireOwnedArtistFile(id);
+  assertFestivalMatch(file.artist.festivalId, festivalId);
+  if (file.artistId !== artistId) throw new Error("אי התאמה בין קובץ לאמן");
   await prisma.artistFile.delete({ where: { id } });
   revalidatePath(`/festivals/${festivalId}/artists/${artistId}`);
 }
@@ -274,8 +504,8 @@ export async function deleteArtistFile(id: string, artistId: string, festivalId:
 // ─── Artist Payments ──────────────────────────────────────────────────────────
 
 export async function createArtistPayment(artistId: string, festivalId: string, formData: FormData) {
-  await requireAdmin();
-  const artist = await prisma.artist.findUniqueOrThrow({ where: { id: artistId } });
+  const artist = await requireOwnedArtist(artistId);
+  assertFestivalMatch(artist.festivalId, festivalId);
   const amount = parseAmount(formData.get("amount"), "סכום");
   const description = requireString(formData, "description", "תיאור");
   const dueDateStr = readString(formData, "dueDate");
@@ -310,8 +540,9 @@ export async function createArtistPayment(artistId: string, festivalId: string, 
 }
 
 export async function toggleArtistPayment(id: string, artistId: string, festivalId: string) {
-  await requireAdmin();
-  const payment = await prisma.artistPayment.findUniqueOrThrow({ where: { id } });
+  const payment = await requireOwnedArtistPayment(id);
+  assertFestivalMatch(payment.artist.festivalId, festivalId);
+  if (payment.artistId !== artistId) throw new Error("אי התאמה בין תשלום לאמן");
   const newPaid = !payment.isPaid;
 
   await prisma.$transaction(async (tx) => {
@@ -327,8 +558,9 @@ export async function toggleArtistPayment(id: string, artistId: string, festival
 }
 
 export async function deleteArtistPayment(id: string, artistId: string, festivalId: string) {
-  await requireAdmin();
-  const payment = await prisma.artistPayment.findUniqueOrThrow({ where: { id } });
+  const payment = await requireOwnedArtistPayment(id);
+  assertFestivalMatch(payment.artist.festivalId, festivalId);
+  if (payment.artistId !== artistId) throw new Error("אי התאמה בין תשלום לאמן");
 
   await prisma.$transaction(async (tx) => {
     if (payment.budgetItemId) {
@@ -347,6 +579,7 @@ export async function deleteArtistPayment(id: string, artistId: string, festival
 export async function createStage(formData: FormData) {
   await requireAdmin();
   const festivalId = formData.get("festivalId") as string;
+  await requireOwnedFestival(festivalId);
 
   await prisma.stage.create({
     data: {
@@ -367,8 +600,7 @@ export async function createStage(formData: FormData) {
 }
 
 export async function updateStage(id: string, formData: FormData) {
-  await requireAdmin();
-  const stage = await prisma.stage.findUniqueOrThrow({ where: { id } });
+  const stage = await requireOwnedStage(id);
 
   await prisma.stage.update({
     where: { id },
@@ -389,7 +621,8 @@ export async function updateStage(id: string, formData: FormData) {
 }
 
 export async function deleteStage(id: string, festivalId: string) {
-  await requireAdmin();
+  const stage = await requireOwnedStage(id);
+  assertFestivalMatch(stage.festivalId, festivalId);
   await prisma.stage.delete({ where: { id } });
   revalidatePath(`/festivals/${festivalId}/schedule`);
   revalidatePath(`/festivals/${festivalId}/stages`);
@@ -403,13 +636,16 @@ export async function createStageFile(
   isExternal: boolean,
   fileType: string
 ) {
-  await requireAdmin();
+  const stage = await requireOwnedStage(stageId);
+  assertFestivalMatch(stage.festivalId, festivalId);
   await prisma.stageFile.create({ data: { stageId, name, url, isExternal, fileType } });
   revalidatePath(`/festivals/${festivalId}/stages`);
 }
 
 export async function deleteStageFile(id: string, stageId: string, festivalId: string) {
-  await requireAdmin();
+  const file = await requireOwnedStageFile(id);
+  assertFestivalMatch(file.stage.festivalId, festivalId);
+  if (file.stageId !== stageId) throw new Error("אי התאמה בין קובץ לבמה");
   await prisma.stageFile.delete({ where: { id } });
   revalidatePath(`/festivals/${festivalId}/stages`);
 }
@@ -421,13 +657,14 @@ export async function createFestivalFile(
   isExternal: boolean,
   fileType: string
 ) {
-  await requireAdmin();
+  await requireOwnedFestival(festivalId);
   await prisma.festivalFile.create({ data: { festivalId, name, url, isExternal, fileType } });
   revalidatePath(`/festivals/${festivalId}/documents`);
 }
 
 export async function deleteFestivalFile(id: string, festivalId: string) {
-  await requireAdmin();
+  const file = await requireOwnedFestivalFile(id);
+  assertFestivalMatch(file.festivalId, festivalId);
   await prisma.festivalFile.delete({ where: { id } });
   revalidatePath(`/festivals/${festivalId}/documents`);
 }
@@ -439,9 +676,13 @@ export async function createTimeSlot(formData: FormData): Promise<{ error?: stri
   const festivalId = formData.get("festivalId") as string;
   const stageId = formData.get("stageId") as string;
   const artistId = formData.get("artistId") as string;
+  await requireOwnedFestival(festivalId);
+  const stage = await requireOwnedStage(stageId);
+  assertFestivalMatch(stage.festivalId, festivalId);
+  const ownedArtist = await requireOwnedArtist(artistId);
+  assertFestivalMatch(ownedArtist.festivalId, festivalId);
   const startTime = new Date(formData.get("startTime") as string);
   const type = (formData.get("type") as string) || "PERFORMANCE";
-
   const artist = await prisma.artist.findUnique({ where: { id: artistId } });
   if (!artist) throw new Error("Artist not found");
 
@@ -480,7 +721,9 @@ export async function createTimeSlot(formData: FormData): Promise<{ error?: stri
 }
 
 export async function updateTimeSlot(id: string, festivalId: string, formData: FormData): Promise<{ error?: string }> {
-  await requireAdmin();
+  await requireOwnedFestival(festivalId);
+  const ownedSlot = await requireOwnedTimeSlot(id);
+  assertFestivalMatch(ownedSlot.stage.festivalId, festivalId);
 
   const notes = (formData.get("notes") as string) || null;
   const technicianName = (formData.get("technicianName") as string) || null;
@@ -543,7 +786,8 @@ export async function updateTimeSlot(id: string, festivalId: string, formData: F
 }
 
 export async function updateTimeSlotStatus(id: string, status: string, festivalId: string) {
-  await requireAdmin();
+  const slot = await requireOwnedTimeSlot(id);
+  assertFestivalMatch(slot.stage.festivalId, festivalId);
   await prisma.timeSlot.update({
     where: { id },
     data: { status: status as "SCHEDULED" | "CANCELLED" | "COMPLETED" },
@@ -552,13 +796,15 @@ export async function updateTimeSlotStatus(id: string, status: string, festivalI
 }
 
 export async function deleteTimeSlot(id: string, festivalId: string) {
-  await requireAdmin();
+  const slot = await requireOwnedTimeSlot(id);
+  assertFestivalMatch(slot.stage.festivalId, festivalId);
   await prisma.timeSlot.delete({ where: { id } });
   revalidatePath(`/festivals/${festivalId}/schedule`);
 }
 
 export async function extendTimeSlot(id: string, extraMinutes: number, festivalId: string) {
-  await requireAdmin();
+  const ownedSlot = await requireOwnedTimeSlot(id);
+  assertFestivalMatch(ownedSlot.stage.festivalId, festivalId);
   const slot = await prisma.timeSlot.findUnique({ where: { id } });
   if (!slot) throw new Error("Slot not found");
   const newEndTime = addMinutes(slot.endTime, extraMinutes);
@@ -568,8 +814,8 @@ export async function extendTimeSlot(id: string, extraMinutes: number, festivalI
 }
 
 export async function getVendorDetails(vendorId: string, festivalId: string) {
-  const role = await getRole();
-  if (!role) throw new Error("אין הרשאה");
+  await requireOwnedFestival(festivalId);
+  await requireOwnedVendor(vendorId);
   const vendor = await prisma.vendor.findUnique({
     where: { id: vendorId, festivalId },
     include: {
@@ -593,6 +839,7 @@ export async function getVendorDetails(vendorId: string, festivalId: string) {
 export async function createTeamRole(formData: FormData) {
   await requireAdmin();
   const festivalId = formData.get("festivalId") as string;
+  await requireOwnedFestival(festivalId);
 
   await prisma.teamMemberRole.create({
     data: {
@@ -605,7 +852,8 @@ export async function createTeamRole(formData: FormData) {
 }
 
 export async function deleteTeamRole(id: string, festivalId: string) {
-  await requireAdmin();
+  const role = await requireOwnedTeamRole(id);
+  assertFestivalMatch(role.festivalId, festivalId);
   await prisma.teamMemberRole.delete({ where: { id } });
   revalidatePath(`/festivals/${festivalId}/team`);
 }
@@ -615,6 +863,9 @@ export async function deleteTeamRole(id: string, festivalId: string) {
 export async function createTeamMember(formData: FormData) {
   await requireAdmin();
   const festivalId = formData.get("festivalId") as string;
+  await requireOwnedFestival(festivalId);
+  const role = await requireOwnedTeamRole(formData.get("roleId") as string);
+  assertFestivalMatch(role.festivalId, festivalId);
 
   await prisma.teamMember.create({
     data: {
@@ -633,8 +884,9 @@ export async function createTeamMember(formData: FormData) {
 }
 
 export async function updateTeamMember(id: string, formData: FormData) {
-  await requireAdmin();
-  const member = await prisma.teamMember.findUniqueOrThrow({ where: { id } });
+  const member = await requireOwnedTeamMember(id);
+  const role = await requireOwnedTeamRole(formData.get("roleId") as string);
+  assertFestivalMatch(role.festivalId, member.festivalId);
 
   await prisma.teamMember.update({
     where: { id },
@@ -653,7 +905,8 @@ export async function updateTeamMember(id: string, formData: FormData) {
 }
 
 export async function deleteTeamMember(id: string, festivalId: string) {
-  await requireAdmin();
+  const member = await requireOwnedTeamMember(id);
+  assertFestivalMatch(member.festivalId, festivalId);
   await prisma.teamMember.delete({ where: { id } });
   revalidatePath(`/festivals/${festivalId}/team`);
 }
@@ -663,6 +916,7 @@ export async function deleteTeamMember(id: string, festivalId: string) {
 export async function createBudgetItem(formData: FormData) {
   await requireAdmin();
   const festivalId = formData.get("festivalId") as string;
+  await requireOwnedFestival(festivalId);
 
   await prisma.budgetItem.create({
     data: {
@@ -682,8 +936,7 @@ export async function createBudgetItem(formData: FormData) {
 }
 
 export async function updateBudgetItem(id: string, formData: FormData) {
-  await requireAdmin();
-  const item = await prisma.budgetItem.findUniqueOrThrow({ where: { id } });
+  const item = await requireOwnedBudgetItem(id);
 
   await prisma.budgetItem.update({
     where: { id },
@@ -703,13 +956,15 @@ export async function updateBudgetItem(id: string, formData: FormData) {
 }
 
 export async function deleteBudgetItem(id: string, festivalId: string) {
-  await requireAdmin();
+  const item = await requireOwnedBudgetItem(id);
+  assertFestivalMatch(item.festivalId, festivalId);
   await prisma.budgetItem.delete({ where: { id } });
   revalidatePath(`/festivals/${festivalId}/budget`);
 }
 
 export async function toggleBudgetItemPaid(id: string, isPaid: boolean, festivalId: string) {
-  await requireAdmin();
+  const item = await requireOwnedBudgetItem(id);
+  assertFestivalMatch(item.festivalId, festivalId);
   await prisma.budgetItem.update({ where: { id }, data: { isPaid } });
   revalidatePath(`/festivals/${festivalId}/budget`);
 }
@@ -717,7 +972,7 @@ export async function toggleBudgetItemPaid(id: string, isPaid: boolean, festival
 // ─── Team Applications ────────────────────────────────────────────────────────
 
 export async function generateInviteToken(festivalId: string) {
-  await requireAdmin();
+  await requireOwnedFestival(festivalId);
   const token = randomUUID();
   await prisma.festival.update({
     where: { id: festivalId },
@@ -745,8 +1000,9 @@ export async function submitTeamApplication(token: string, formData: FormData) {
 }
 
 export async function approveTeamApplication(applicationId: string, roleId: string) {
-  await requireAdmin();
-  const app = await prisma.teamApplication.findUniqueOrThrow({ where: { id: applicationId } });
+  const app = await requireOwnedTeamApplication(applicationId);
+  const ownedRole = await requireOwnedTeamRole(roleId);
+  assertFestivalMatch(ownedRole.festivalId, app.festivalId);
 
   await prisma.$transaction(async (tx) => {
     const role = await tx.teamMemberRole.findUniqueOrThrow({ where: { id: roleId } });
@@ -777,8 +1033,7 @@ export async function approveTeamApplication(applicationId: string, roleId: stri
 }
 
 export async function rejectTeamApplication(applicationId: string) {
-  await requireAdmin();
-  const app = await prisma.teamApplication.findUniqueOrThrow({ where: { id: applicationId } });
+  const app = await requireOwnedTeamApplication(applicationId);
   await prisma.teamApplication.delete({ where: { id: applicationId } });
   revalidatePath(`/festivals/${app.festivalId}/team`);
 }
@@ -788,6 +1043,7 @@ export async function rejectTeamApplication(applicationId: string) {
 export async function createVendor(formData: FormData) {
   await requireAdmin();
   const festivalId = formData.get("festivalId") as string;
+  await requireOwnedFestival(festivalId);
 
   await prisma.vendor.create({
     data: {
@@ -802,8 +1058,7 @@ export async function createVendor(formData: FormData) {
 }
 
 export async function updateVendor(id: string, formData: FormData) {
-  await requireAdmin();
-  const vendor = await prisma.vendor.findUniqueOrThrow({ where: { id } });
+  const vendor = await requireOwnedVendor(id);
 
   await prisma.vendor.update({
     where: { id },
@@ -818,7 +1073,8 @@ export async function updateVendor(id: string, formData: FormData) {
 }
 
 export async function deleteVendor(id: string, festivalId: string) {
-  await requireAdmin();
+  const vendor = await requireOwnedVendor(id);
+  assertFestivalMatch(vendor.festivalId, festivalId);
   await prisma.vendor.delete({ where: { id } });
   revalidatePath(`/festivals/${festivalId}/vendors`);
 }
@@ -826,7 +1082,8 @@ export async function deleteVendor(id: string, festivalId: string) {
 // ─── Vendor Contacts ─────────────────────────────────────────────────────────
 
 export async function createVendorContact(vendorId: string, festivalId: string, formData: FormData) {
-  await requireAdmin();
+  const vendor = await requireOwnedVendor(vendorId);
+  assertFestivalMatch(vendor.festivalId, festivalId);
 
   await prisma.vendorContact.create({
     data: {
@@ -842,7 +1099,8 @@ export async function createVendorContact(vendorId: string, festivalId: string, 
 }
 
 export async function deleteVendorContact(id: string, festivalId: string) {
-  await requireAdmin();
+  const contact = await requireOwnedVendorContact(id);
+  assertFestivalMatch(contact.vendor.festivalId, festivalId);
   await prisma.vendorContact.delete({ where: { id } });
   revalidatePath(`/festivals/${festivalId}/vendors`);
 }
@@ -850,7 +1108,8 @@ export async function deleteVendorContact(id: string, festivalId: string) {
 // ─── Vendor Vehicles ─────────────────────────────────────────────────────────
 
 export async function createVendorVehicle(vendorId: string, festivalId: string, formData: FormData) {
-  await requireAdmin();
+  const vendor = await requireOwnedVendor(vendorId);
+  assertFestivalMatch(vendor.festivalId, festivalId);
 
   await prisma.vendorVehicle.create({
     data: {
@@ -865,7 +1124,8 @@ export async function createVendorVehicle(vendorId: string, festivalId: string, 
 }
 
 export async function deleteVendorVehicle(id: string, festivalId: string) {
-  await requireAdmin();
+  const vehicle = await requireOwnedVendorVehicle(id);
+  assertFestivalMatch(vehicle.vendor.festivalId, festivalId);
   await prisma.vendorVehicle.delete({ where: { id } });
   revalidatePath(`/festivals/${festivalId}/vendors`);
 }
@@ -873,8 +1133,8 @@ export async function deleteVendorVehicle(id: string, festivalId: string) {
 // ─── Vendor Payments ─────────────────────────────────────────────────────────
 
 export async function createVendorPayment(vendorId: string, festivalId: string, formData: FormData) {
-  await requireAdmin();
-  const vendor = await prisma.vendor.findUniqueOrThrow({ where: { id: vendorId } });
+  const vendor = await requireOwnedVendor(vendorId);
+  assertFestivalMatch(vendor.festivalId, festivalId);
   const amount = parseAmount(formData.get("amount"), "סכום");
   const description = requireString(formData, "description", "תיאור");
   const dueDateStr = readString(formData, "dueDate");
@@ -909,8 +1169,8 @@ export async function createVendorPayment(vendorId: string, festivalId: string, 
 }
 
 export async function toggleVendorPayment(id: string, festivalId: string) {
-  await requireAdmin();
-  const payment = await prisma.vendorPayment.findUniqueOrThrow({ where: { id } });
+  const payment = await requireOwnedVendorPayment(id);
+  assertFestivalMatch(payment.vendor.festivalId, festivalId);
   const newPaid = !payment.isPaid;
 
   await prisma.$transaction(async (tx) => {
@@ -926,8 +1186,8 @@ export async function toggleVendorPayment(id: string, festivalId: string) {
 }
 
 export async function deleteVendorPayment(id: string, festivalId: string) {
-  await requireAdmin();
-  const payment = await prisma.vendorPayment.findUniqueOrThrow({ where: { id } });
+  const payment = await requireOwnedVendorPayment(id);
+  assertFestivalMatch(payment.vendor.festivalId, festivalId);
 
   await prisma.$transaction(async (tx) => {
     if (payment.budgetItemId) {
@@ -951,7 +1211,8 @@ export async function createVendorFile(
   isExternal: boolean,
   fileType: string
 ) {
-  await requireAdmin();
+  const vendor = await requireOwnedVendor(vendorId);
+  assertFestivalMatch(vendor.festivalId, festivalId);
 
   await prisma.vendorFile.create({
     data: { vendorId, name, url, isExternal, fileType: fileType || null },
@@ -961,7 +1222,8 @@ export async function createVendorFile(
 }
 
 export async function deleteVendorFile(id: string, festivalId: string) {
-  await requireAdmin();
+  const file = await requireOwnedVendorFile(id);
+  assertFestivalMatch(file.vendor.festivalId, festivalId);
   await prisma.vendorFile.delete({ where: { id } });
   revalidatePath(`/festivals/${festivalId}/vendors`);
 }
@@ -971,7 +1233,7 @@ export async function deleteVendorFile(id: string, festivalId: string) {
 // ─── Setup Tasks (לוז טכני כללי) ─────────────────────────────────────────────
 
 export async function createSetupTask(festivalId: string, dayLabel: string, date: string | null, time: string | null, category: string | null, description: string, responsible: string | null) {
-  await requireAdmin();
+  await requireOwnedFestival(festivalId);
   await prisma.festivalSetupTask.create({
     data: { festivalId, dayLabel, date: date || null, time: time || null, category: category || null, description, responsible: responsible || null },
   });
@@ -979,7 +1241,8 @@ export async function createSetupTask(festivalId: string, dayLabel: string, date
 }
 
 export async function updateSetupTask(id: string, festivalId: string, formData: FormData) {
-  await requireAdmin();
+  const task = await requireOwnedSetupTask(id);
+  assertFestivalMatch(task.festivalId, festivalId);
   await prisma.festivalSetupTask.update({
     where: { id },
     data: {
@@ -995,7 +1258,8 @@ export async function updateSetupTask(id: string, festivalId: string, formData: 
 }
 
 export async function deleteSetupTask(id: string, festivalId: string) {
-  await requireAdmin();
+  const task = await requireOwnedSetupTask(id);
+  assertFestivalMatch(task.festivalId, festivalId);
   await prisma.festivalSetupTask.delete({ where: { id } });
   revalidatePath(`/festivals/${festivalId}/schedule`);
 }
@@ -1003,7 +1267,7 @@ export async function deleteSetupTask(id: string, festivalId: string) {
 // ─── Community Contacts (גורמים חיצוניים) ────────────────────────────────────
 
 export async function createCommunityContact(festivalId: string, formData: FormData) {
-  await requireAdmin();
+  await requireOwnedFestival(festivalId);
   await prisma.festivalCommunityContact.create({
     data: {
       festivalId,
@@ -1017,7 +1281,8 @@ export async function createCommunityContact(festivalId: string, formData: FormD
 }
 
 export async function updateCommunityContact(id: string, festivalId: string, formData: FormData) {
-  await requireAdmin();
+  const contact = await requireOwnedCommunityContact(id);
+  assertFestivalMatch(contact.festivalId, festivalId);
   await prisma.festivalCommunityContact.update({
     where: { id },
     data: {
@@ -1031,7 +1296,8 @@ export async function updateCommunityContact(id: string, festivalId: string, for
 }
 
 export async function deleteCommunityContact(id: string, festivalId: string) {
-  await requireAdmin();
+  const contact = await requireOwnedCommunityContact(id);
+  assertFestivalMatch(contact.festivalId, festivalId);
   await prisma.festivalCommunityContact.delete({ where: { id } });
   revalidatePath(`/festivals/${festivalId}/team`);
 }

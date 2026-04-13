@@ -1,10 +1,8 @@
-export const dynamic = 'force-dynamic';
-import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
-import { getRole } from "@/lib/auth";
-import { getAppSettings } from "@/lib/settings";
-import LiveDashboard from "./LiveDashboard";
+export const dynamic = "force-dynamic";
 import { extendTimeSlot, updateTimeSlotStatus } from "@/app/actions";
+import { requireOwnedFestivalPage } from "@/lib/access";
+import { prisma } from "@/lib/prisma";
+import LiveDashboard from "./LiveDashboard";
 
 export default async function FestivalDashboard({
   params,
@@ -12,42 +10,35 @@ export default async function FestivalDashboard({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const { festival } = await requireOwnedFestivalPage(id);
 
-  const [role, settings, festival] = await Promise.all([
-    getRole(),
-    getAppSettings(),
-    prisma.festival.findUnique({
-      where: { id },
-      include: {
-        stages: {
-          include: {
-            timeSlots: {
-              include: { artist: true },
-              orderBy: { startTime: "asc" },
-            },
+  const fullFestival = await prisma.festival.findUnique({
+    where: { id },
+    include: {
+      stages: {
+        include: {
+          timeSlots: {
+            include: { artist: true },
+            orderBy: { startTime: "asc" },
           },
-          orderBy: { name: "asc" },
         },
-        budgetItems: true,
+        orderBy: { name: "asc" },
       },
-    }),
-  ]);
+      budgetItems: true,
+    },
+  });
 
-  if (!festival) notFound();
+  if (!fullFestival) throw new Error("Festival not found");
 
-  const showBudget = role !== "limited" || (settings?.showBudget ?? true);
-  const isAdmin = role === "admin";
-
-  const income = festival.budgetItems
+  const income = fullFestival.budgetItems
     .filter((b) => b.type === "INCOME")
     .reduce((sum, b) => sum + b.amount, 0);
-  const expenses = festival.budgetItems
+  const expenses = fullFestival.budgetItems
     .filter((b) => b.type === "EXPENSE")
     .reduce((sum, b) => sum + b.amount, 0);
 
-  // Conflict detection
   const conflicts: string[] = [];
-  for (const stage of festival.stages) {
+  for (const stage of fullFestival.stages) {
     const slots = stage.timeSlots
       .filter((s) => s.status === "SCHEDULED")
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
@@ -60,8 +51,7 @@ export default async function FestivalDashboard({
     }
   }
 
-  // Serialize dates for client
-  const stagesData = festival.stages.map((stage) => ({
+  const stagesData = fullFestival.stages.map((stage) => ({
     id: stage.id,
     name: stage.name,
     capacity: stage.capacity,
@@ -91,11 +81,11 @@ export default async function FestivalDashboard({
       festivalLocation={festival.location}
       stagesData={stagesData}
       conflicts={conflicts}
-      showBudget={showBudget}
+      showBudget={true}
       budgetBalance={income - expenses}
       income={income}
       expenses={expenses}
-      isAdmin={isAdmin}
+      isAdmin={true}
       extendTimeSlot={extendTimeSlot}
       updateTimeSlotStatus={updateTimeSlotStatus}
     />
