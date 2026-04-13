@@ -12,7 +12,7 @@ export type FestivalViewerPermissions = {
   iat: number; // issued-at unix seconds
 };
 
-const GUEST_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
+const GUEST_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365 * 10; // 10 years — link works indefinitely
 const GUEST_COOKIE_TYPE_PREFIX = "guest-v1:";
 
 const secretFromEnv = process.env.SESSION_SECRET;
@@ -164,7 +164,7 @@ export async function setGuestSessionCookie(payload: Omit<FestivalViewerPermissi
     path: "/",
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: 60 * 60 * 24 * 365 * 10,
   });
 }
 
