@@ -157,15 +157,26 @@ export default function ScheduleClient({
   const [submittingTask, setSubmittingTask] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "timeline">("list");
 
+  // Optimistic slot overrides for drag feedback (cleared on server revalidation)
+  const [optimisticSlots, setOptimisticSlots] = useState<Record<string, { startTime: string; endTime: string }>>({});
+
   async function handleMoveSlot(slotId: string, newStart: Date, newEnd: Date) {
-    const pad = (n: number) => n.toString().padStart(2, "0");
-    const toLocal = (d: Date) =>
-      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    // Show new position immediately (no snap-back)
+    setOptimisticSlots((prev) => ({
+      ...prev,
+      [slotId]: { startTime: newStart.toISOString(), endTime: newEnd.toISOString() },
+    }));
     const fd = new FormData();
-    fd.set("startTime", toLocal(newStart));
-    fd.set("endTime", toLocal(newEnd));
+    fd.set("startTime", newStart.toISOString());
+    fd.set("endTime", newEnd.toISOString());
     const result = await updateTimeSlot(slotId, festivalId, fd);
-    if (result?.error) toast(result.error, "error");
+    if (result?.error) {
+      toast(result.error, "error");
+      // Revert optimistic state on error
+      setOptimisticSlots((prev) => { const n = { ...prev }; delete n[slotId]; return n; });
+    } else {
+      setOptimisticSlots((prev) => { const n = { ...prev }; delete n[slotId]; return n; });
+    }
   }
 
   function exportCSV() {
@@ -219,7 +230,9 @@ export default function ScheduleClient({
 
   const stagesWithFiltered = stages.map((stage) => ({
     ...stage,
-    timeSlots: stage.timeSlots.filter((ts) => ts.startTime.split("T")[0] === selectedDate),
+    timeSlots: stage.timeSlots
+      .map((ts) => optimisticSlots[ts.id] ? { ...ts, ...optimisticSlots[ts.id] } : ts)
+      .filter((ts) => ts.startTime.split("T")[0] === selectedDate),
   }));
 
   const formatDateLabel = (d: string) =>
@@ -510,6 +523,9 @@ export default function ScheduleClient({
             action={async (fd) => {
               setSubmittingSlot(true);
               setSlotError("");
+              // Convert datetime-local (local time) to ISO so the server gets the correct UTC time
+              const localStr = fd.get("startTime") as string;
+              if (localStr) fd.set("startTime", new Date(localStr).toISOString());
               try {
                 const result = await createTimeSlot(fd);
                 if (result?.error) { setSlotError(result.error); }
@@ -602,9 +618,9 @@ export default function ScheduleClient({
               if (!editingSlot) return;
               setSubmittingEdit(true);
               setEditError("");
-              // Pass computed times directly (not from form fields since they're controlled)
-              fd.set("startTime", editStartTime);
-              fd.set("endTime", editAutoCalc ? "" : editEndTime);
+              // Convert local datetime strings to ISO for correct timezone handling on server
+              fd.set("startTime", new Date(editStartTime).toISOString());
+              fd.set("endTime", editAutoCalc ? "" : new Date(editEndTime).toISOString());
               fd.set("type", editType);
               fd.set("artistId", editArtistId);
               try {

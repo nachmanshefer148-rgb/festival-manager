@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { formatTime } from "@/lib/utils";
 import {
   DndContext,
@@ -98,16 +98,28 @@ function DraggableSlot({
 
 const ROW_HEIGHT = 72;
 const LABEL_WIDTH = 80; // w-20
+const ZOOM_LEVELS = [1, 2, 4, 8];
 
 export default function TimelineView({ stages, onEditSlot, onMoveSlot }: Props) {
   const [now, setNow] = useState(() => new Date());
   const [tooltip, setTooltip] = useState<{ slot: TimeSlot; x: number; y: number } | null>(null);
   const [movingSlotId, setMovingSlotId] = useState<string | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState(1);
+  // innerRef is on the scaled inner div — gives the actual rendered track width for drag math
+  const innerRef = useRef<HTMLDivElement>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
+
+  const zoomIn = useCallback(() => setZoom((z) => {
+    const idx = ZOOM_LEVELS.indexOf(z);
+    return ZOOM_LEVELS[Math.min(idx + 1, ZOOM_LEVELS.length - 1)];
+  }), []);
+  const zoomOut = useCallback(() => setZoom((z) => {
+    const idx = ZOOM_LEVELS.indexOf(z);
+    return ZOOM_LEVELS[Math.max(idx - 1, 0)];
+  }), []);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60_000);
@@ -153,10 +165,11 @@ export default function TimelineView({ stages, onEditSlot, onMoveSlot }: Props) 
     const slot = allSlots.find((s) => s.id === slotId);
     if (!slot) return;
 
-    const containerWidth = (containerRef.current?.getBoundingClientRect().width ?? LABEL_WIDTH) - LABEL_WIDTH;
-    if (containerWidth <= 0) return;
+    // Use the inner (zoomed) div's full rendered width for accurate pixel→time conversion
+    const trackWidth = (innerRef.current?.offsetWidth ?? LABEL_WIDTH) - LABEL_WIDTH;
+    if (trackWidth <= 0) return;
 
-    const deltaMs = (event.delta.x / containerWidth) * totalMs;
+    const deltaMs = (event.delta.x / trackWidth) * totalMs;
     const snapped = snapToMinutes(deltaMs, 5);
     if (snapped === 0) return;
 
@@ -169,10 +182,27 @@ export default function TimelineView({ stages, onEditSlot, onMoveSlot }: Props) 
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-      <div
-        ref={containerRef}
-        className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden"
-      >
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        {/* Zoom controls */}
+        <div className="flex items-center justify-end gap-1 px-3 py-1.5 border-b border-gray-100 bg-gray-50">
+          <span className="text-xs text-gray-400 ml-1">זום:</span>
+          <button
+            onClick={zoomOut}
+            disabled={zoom === ZOOM_LEVELS[0]}
+            className="w-6 h-6 rounded text-sm font-bold text-gray-600 hover:bg-gray-200 disabled:opacity-30 transition-colors"
+          >−</button>
+          <span className="text-xs text-gray-600 w-6 text-center">{zoom}x</span>
+          <button
+            onClick={zoomIn}
+            disabled={zoom === ZOOM_LEVELS[ZOOM_LEVELS.length - 1]}
+            className="w-6 h-6 rounded text-sm font-bold text-gray-600 hover:bg-gray-200 disabled:opacity-30 transition-colors"
+          >+</button>
+        </div>
+
+        {/* Scrollable zoom area */}
+        <div className="overflow-x-auto">
+          <div ref={innerRef} style={{ width: zoom > 1 ? `${zoom * 100}%` : "100%", minWidth: "100%" }}>
+
         {/* Hour tick header */}
         <div className="relative h-8 border-b border-gray-100 bg-gray-50" style={{ marginLeft: LABEL_WIDTH }}>
           {ticks.map((tick, i) => (
@@ -296,6 +326,9 @@ export default function TimelineView({ stages, onEditSlot, onMoveSlot }: Props) 
             </div>
           ))}
         </div>
+
+          </div>{/* end innerRef */}
+        </div>{/* end overflow-x-auto */}
 
         {/* Legend */}
         <div className="flex flex-wrap gap-4 px-4 py-2 border-t border-gray-100 bg-gray-50 text-xs text-gray-500">
