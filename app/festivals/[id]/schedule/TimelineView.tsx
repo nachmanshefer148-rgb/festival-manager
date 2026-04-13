@@ -98,7 +98,8 @@ function DraggableSlot({
 
 const ROW_HEIGHT = 72;
 const LABEL_WIDTH = 80; // w-20
-const ZOOM_LEVELS = [1, 2, 4, 8];
+// zoom < 1 = zoom out (wider time range), zoom > 1 = zoom in (wider container + scroll)
+const ZOOM_LEVELS = [0.125, 0.25, 0.5, 1, 2, 4, 8];
 
 export default function TimelineView({ stages, onEditSlot, onMoveSlot }: Props) {
   const [now, setNow] = useState(() => new Date());
@@ -138,8 +139,13 @@ export default function TimelineView({ stages, onEditSlot, onMoveSlot }: Props) 
   }
 
   const PADDING_MS = 30 * 60 * 1000;
-  const minTime = Math.min(...allSlots.map((s) => new Date(s.startTime).getTime())) - PADDING_MS;
-  const maxTime = Math.max(...allSlots.map((s) => new Date(s.endTime).getTime())) + PADDING_MS;
+  const baseMin = Math.min(...allSlots.map((s) => new Date(s.startTime).getTime())) - PADDING_MS;
+  const baseMax = Math.max(...allSlots.map((s) => new Date(s.endTime).getTime())) + PADDING_MS;
+  const center = (baseMin + baseMax) / 2;
+  const halfRange = (baseMax - baseMin) / 2;
+  // zoom < 1: expand time window; zoom >= 1: use base range (container scales instead)
+  const minTime = zoom < 1 ? center - halfRange / zoom : baseMin;
+  const maxTime = zoom < 1 ? center + halfRange / zoom : baseMax;
   const totalMs = maxTime - minTime;
 
   function pct(ms: number) {
@@ -191,7 +197,9 @@ export default function TimelineView({ stages, onEditSlot, onMoveSlot }: Props) 
             disabled={zoom === ZOOM_LEVELS[0]}
             className="w-6 h-6 rounded text-sm font-bold text-gray-600 hover:bg-gray-200 disabled:opacity-30 transition-colors"
           >−</button>
-          <span className="text-xs text-gray-600 w-6 text-center">{zoom}x</span>
+          <span className="text-xs text-gray-600 w-10 text-center">
+            {zoom >= 1 ? `${zoom}x` : zoom === 0.5 ? "½x" : zoom === 0.25 ? "¼x" : "⅛x"}
+          </span>
           <button
             onClick={zoomIn}
             disabled={zoom === ZOOM_LEVELS[ZOOM_LEVELS.length - 1]}
@@ -201,7 +209,7 @@ export default function TimelineView({ stages, onEditSlot, onMoveSlot }: Props) 
 
         {/* Scrollable zoom area */}
         <div className="overflow-x-auto">
-          <div ref={innerRef} style={{ width: zoom > 1 ? `${zoom * 100}%` : "100%", minWidth: "100%" }}>
+          <div ref={innerRef} style={{ width: zoom > 1 ? `${zoom * 100}%` : "100%", minWidth: "100%" }} key={zoom}>
 
         {/* Hour tick header */}
         <div className="relative h-8 border-b border-gray-100 bg-gray-50" style={{ marginLeft: LABEL_WIDTH }}>
