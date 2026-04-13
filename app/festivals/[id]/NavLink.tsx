@@ -24,7 +24,7 @@ export function NavLink({
   return (
     <Link
       href={fullHref}
-      className={`flex items-center gap-3 px-4 py-2.5 transition-colors text-sm font-medium border-r-2 ${
+      className={`flex items-center gap-3 px-4 py-2.5 transition-colors text-sm font-medium border-l-2 ${
         isActive
           ? "bg-violet-50 text-violet-700 border-violet-600"
           : "text-gray-700 hover:bg-violet-50 hover:text-violet-700 border-transparent"
