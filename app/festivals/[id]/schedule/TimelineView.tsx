@@ -1,7 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatTime } from "@/lib/utils";
+import {
+  DndContext,
+  useDraggable,
+  DragEndEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
 
 interface Artist {
   id: string;
@@ -33,13 +41,8 @@ interface Stage {
 interface Props {
   stages: Stage[];
   onEditSlot?: (slot: TimeSlot) => void;
+  onMoveSlot?: (slotId: string, newStart: Date, newEnd: Date) => Promise<void>;
 }
-
-const STATUS_BG: Record<string, string> = {
-  SCHEDULED: "",
-  COMPLETED: "opacity-70",
-  CANCELLED: "opacity-30",
-};
 
 const SLOT_COLORS: Record<string, { bg: string; border: string; text: string }> = {
   PERFORMANCE_SCHEDULED: { bg: "bg-violet-500", border: "border-violet-700", text: "text-white" },
@@ -55,16 +58,62 @@ function getSlotColor(slot: TimeSlot) {
   return SLOT_COLORS[key] ?? SLOT_COLORS["PERFORMANCE_SCHEDULED"];
 }
 
-export default function TimelineView({ stages, onEditSlot }: Props) {
+function snapToMinutes(ms: number, minutes: number): number {
+  const snapMs = minutes * 60 * 1000;
+  return Math.round(ms / snapMs) * snapMs;
+}
+
+function DraggableSlot({
+  slot,
+  style,
+  className,
+  children,
+  disabled,
+}: {
+  slot: TimeSlot;
+  style: React.CSSProperties;
+  className: string;
+  children: React.ReactNode;
+  disabled?: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: slot.id,
+    disabled,
+  });
+
+  const finalStyle: React.CSSProperties = {
+    ...style,
+    ...(transform ? { transform: `translateX(${transform.x}px)` } : {}),
+    opacity: isDragging ? 0.65 : 1,
+    zIndex: isDragging ? 50 : undefined,
+    cursor: disabled ? "pointer" : "grab",
+  };
+
+  return (
+    <div ref={setNodeRef} style={finalStyle} className={className} {...listeners} {...attributes}>
+      {children}
+    </div>
+  );
+}
+
+const ROW_HEIGHT = 72;
+const LABEL_WIDTH = 80; // w-20
+
+export default function TimelineView({ stages, onEditSlot, onMoveSlot }: Props) {
   const [now, setNow] = useState(() => new Date());
   const [tooltip, setTooltip] = useState<{ slot: TimeSlot; x: number; y: number } | null>(null);
+  const [movingSlotId, setMovingSlotId] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(timer);
   }, []);
 
-  // Collect all slots across all stages
   const allSlots = stages.flatMap((s) => s.timeSlots);
 
   if (allSlots.length === 0) {
@@ -76,7 +125,6 @@ export default function TimelineView({ stages, onEditSlot }: Props) {
     );
   }
 
-  // Time range: earliest start − 30min to latest end + 30min
   const PADDING_MS = 30 * 60 * 1000;
   const minTime = Math.min(...allSlots.map((s) => new Date(s.startTime).getTime())) - PADDING_MS;
   const maxTime = Math.max(...allSlots.map((s) => new Date(s.endTime).getTime())) + PADDING_MS;
@@ -86,7 +134,6 @@ export default function TimelineView({ stages, onEditSlot }: Props) {
     return ((ms - minTime) / totalMs) * 100;
   }
 
-  // Generate hourly tick marks
   const ticks: Date[] = [];
   const tickStart = new Date(minTime);
   tickStart.setMinutes(0, 0, 0);
@@ -100,122 +147,210 @@ export default function TimelineView({ stages, onEditSlot }: Props) {
   const nowPct = pct(now.getTime());
   const showNow = now.getTime() >= minTime && now.getTime() <= maxTime;
 
+  function handleDragEnd(event: DragEndEvent) {
+    if (!event.delta || !onMoveSlot) return;
+    const slotId = String(event.active.id);
+    const slot = allSlots.find((s) => s.id === slotId);
+    if (!slot) return;
+
+    const containerWidth = (containerRef.current?.getBoundingClientRect().width ?? LABEL_WIDTH) - LABEL_WIDTH;
+    if (containerWidth <= 0) return;
+
+    const deltaMs = (event.delta.x / containerWidth) * totalMs;
+    const snapped = snapToMinutes(deltaMs, 5);
+    if (snapped === 0) return;
+
+    const newStart = new Date(new Date(slot.startTime).getTime() + snapped);
+    const newEnd = new Date(new Date(slot.endTime).getTime() + snapped);
+
+    setMovingSlotId(slotId);
+    onMoveSlot(slotId, newStart, newEnd).finally(() => setMovingSlotId(null));
+  }
+
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-      {/* Tick label header */}
-      <div className="relative h-8 border-b border-gray-100 bg-gray-50 mx-0" style={{ marginRight: 80 }}>
-        {ticks.map((tick, i) => (
-          <div
-            key={i}
-            className="absolute top-0 bottom-0 flex items-center"
-            style={{ left: `${pct(tick.getTime())}%` }}
-          >
-            <div className="absolute h-full border-l border-gray-200" />
-            <span className="text-xs text-gray-400 ml-1 whitespace-nowrap" dir="ltr">
-              {tick.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit", hour12: false })}
-            </span>
-          </div>
-        ))}
-        {showNow && (
-          <div className="absolute top-0 bottom-0 border-l-2 border-red-400 z-10" style={{ left: `${nowPct}%` }} />
-        )}
-      </div>
-
-      {/* Stage rows */}
-      <div>
-        {stages.map((stage) => (
-          <div key={stage.id} className="flex border-b border-gray-100 last:border-0">
-            {/* Stage label */}
-            <div className="w-20 shrink-0 flex items-center px-3 py-2 bg-gray-50 border-r border-gray-100">
-              <span className="text-xs font-semibold text-gray-700 truncate">{stage.name}</span>
+    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      <div
+        ref={containerRef}
+        className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden"
+      >
+        {/* Hour tick header */}
+        <div className="relative h-8 border-b border-gray-100 bg-gray-50" style={{ marginLeft: LABEL_WIDTH }}>
+          {ticks.map((tick, i) => (
+            <div
+              key={i}
+              className="absolute top-0 bottom-0 flex items-center"
+              style={{ left: `${pct(tick.getTime())}%` }}
+            >
+              <div className="absolute h-full border-l border-gray-200" />
+              <span className="text-xs text-gray-400 ml-1 whitespace-nowrap" dir="ltr">
+                {tick.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit", hour12: false })}
+              </span>
             </div>
+          ))}
+          {showNow && (
+            <div
+              className="absolute top-0 bottom-0 border-l-2 border-red-400 z-10"
+              style={{ left: `${nowPct}%` }}
+            />
+          )}
+        </div>
 
-            {/* Slots track */}
-            <div className="flex-1 relative" style={{ height: 56 }}>
-              {/* Tick lines */}
-              {ticks.map((tick, i) => (
-                <div
-                  key={i}
-                  className="absolute top-0 bottom-0 border-l border-gray-100"
-                  style={{ left: `${pct(tick.getTime())}%` }}
-                />
-              ))}
+        {/* Stage rows */}
+        <div>
+          {stages.map((stage) => (
+            <div key={stage.id} className="flex border-b border-gray-100 last:border-0">
+              {/* Stage label */}
+              <div
+                className="shrink-0 flex items-center px-3 py-2 bg-gray-50 border-r border-gray-100"
+                style={{ width: LABEL_WIDTH }}
+              >
+                <span className="text-xs font-semibold text-gray-700 truncate">{stage.name}</span>
+              </div>
 
-              {/* Now line */}
-              {showNow && (
-                <div
-                  className="absolute top-0 bottom-0 border-l-2 border-red-400 z-10"
-                  style={{ left: `${nowPct}%` }}
-                />
-              )}
-
-              {/* Slot blocks */}
-              {stage.timeSlots.map((slot) => {
-                const slotStart = new Date(slot.startTime).getTime();
-                const slotEnd = new Date(slot.endTime).getTime();
-                const leftPct = pct(slotStart);
-                const widthPct = ((slotEnd - slotStart) / totalMs) * 100;
-                const colors = getSlotColor(slot);
-                const isSC = slot.type === "SOUNDCHECK";
-
-                return (
+              {/* Track */}
+              <div className="flex-1 relative" style={{ height: ROW_HEIGHT }}>
+                {/* Tick grid lines */}
+                {ticks.map((tick, i) => (
                   <div
-                    key={slot.id}
-                    className={`absolute top-2 bottom-2 rounded border ${colors.bg} ${colors.border} ${colors.text} ${STATUS_BG[slot.status]} flex items-center overflow-hidden cursor-pointer hover:brightness-90 transition-all`}
-                    style={{ left: `${leftPct}%`, width: `${Math.max(widthPct, 1)}%` }}
-                    onClick={() => onEditSlot?.(slot)}
-                    onMouseEnter={(e) => {
-                      const rect = (e.target as HTMLElement).closest(".relative")?.getBoundingClientRect();
-                      if (rect) setTooltip({ slot, x: e.clientX, y: rect.top - 8 });
-                    }}
-                    onMouseLeave={() => setTooltip(null)}
-                  >
-                    <div className="px-1.5 truncate text-xs font-medium whitespace-nowrap">
-                      {isSC && <span className="opacity-70">SC · </span>}
-                      {slot.artist?.name ?? "ללא אמן"}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
+                    key={i}
+                    className="absolute top-0 bottom-0 border-l border-gray-100"
+                    style={{ left: `${pct(tick.getTime())}%` }}
+                  />
+                ))}
 
-      {/* Legend */}
-      <div className="flex gap-4 px-4 py-2 border-t border-gray-100 bg-gray-50 text-xs text-gray-500">
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-violet-500 border border-violet-700" />
-          הופעה
+                {/* Now line */}
+                {showNow && (
+                  <div
+                    className="absolute top-0 bottom-0 border-l-2 border-red-400 z-10"
+                    style={{ left: `${nowPct}%` }}
+                  />
+                )}
+
+                {/* Slot blocks */}
+                {stage.timeSlots.map((slot) => {
+                  const slotStart = new Date(slot.startTime).getTime();
+                  const slotEnd = new Date(slot.endTime).getTime();
+                  const leftPct = pct(slotStart);
+                  const widthPct = ((slotEnd - slotStart) / totalMs) * 100;
+                  const colors = getSlotColor(slot);
+                  const isSC = slot.type === "SOUNDCHECK";
+                  const isDraggable = !!onMoveSlot && slot.status !== "CANCELLED";
+                  const isMoving = movingSlotId === slot.id;
+
+                  const slotStyle: React.CSSProperties = {
+                    left: `${leftPct}%`,
+                    width: `${Math.max(widthPct, 0.5)}%`,
+                  };
+
+                  const slotClass = [
+                    "absolute top-3 bottom-3 rounded border flex flex-col justify-center overflow-hidden",
+                    colors.bg,
+                    colors.border,
+                    colors.text,
+                    slot.status === "CANCELLED" ? "opacity-30" : "",
+                    slot.status === "COMPLETED" ? "opacity-70" : "",
+                    isMoving ? "animate-pulse" : "",
+                    "transition-opacity",
+                  ]
+                    .filter(Boolean)
+                    .join(" ");
+
+                  return (
+                    <div key={slot.id}>
+                      <DraggableSlot slot={slot} style={slotStyle} className={slotClass} disabled={!isDraggable}>
+                        <div
+                          className="px-1.5 w-full"
+                          onClick={() => onEditSlot?.(slot)}
+                          onMouseEnter={(e) => setTooltip({ slot, x: e.clientX, y: e.clientY })}
+                          onMouseLeave={() => setTooltip(null)}
+                        >
+                          <p className="text-xs font-semibold truncate leading-tight">
+                            {isSC && <span className="opacity-70">SC · </span>}
+                            {slot.artist?.name ?? "ללא אמן"}
+                          </p>
+                          <p className="text-[10px] opacity-75 truncate leading-tight" dir="ltr">
+                            {formatTime(slot.startTime)}–{formatTime(slot.endTime)}
+                          </p>
+                        </div>
+                      </DraggableSlot>
+
+                      {/* breakAfter buffer strip */}
+                      {slot.type === "PERFORMANCE" &&
+                        slot.status !== "CANCELLED" &&
+                        slot.artist &&
+                        slot.artist.breakAfter > 0 &&
+                        (() => {
+                          const breakLeft = pct(slotEnd);
+                          const breakWidth = (slot.artist.breakAfter * 60000 / totalMs) * 100;
+                          return (
+                            <div
+                              className="absolute top-3 bottom-3 bg-orange-100 border border-orange-300 border-dashed opacity-70 rounded-sm pointer-events-none"
+                              style={{ left: `${breakLeft}%`, width: `${breakWidth}%` }}
+                            />
+                          );
+                        })()}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-amber-400 border border-amber-600" />
-          סאונדצ׳ק
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-green-500 border border-green-700" />
-          הסתיים
-        </div>
-        {showNow && (
+
+        {/* Legend */}
+        <div className="flex flex-wrap gap-4 px-4 py-2 border-t border-gray-100 bg-gray-50 text-xs text-gray-500">
           <div className="flex items-center gap-1.5">
-            <div className="w-3 h-0.5 bg-red-400" />
-            עכשיו
+            <div className="w-3 h-3 rounded bg-violet-500 border border-violet-700" />
+            הופעה
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-amber-400 border border-amber-600" />
+            סאונדצ׳ק
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-green-500 border border-green-700" />
+            הסתיים
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded border border-dashed bg-orange-100 border-orange-300" />
+            הפסקה אחרי הופעה
+          </div>
+          {showNow && (
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-0.5 bg-red-400" />
+              עכשיו
+            </div>
+          )}
+          {onMoveSlot && (
+            <div className="flex items-center gap-1.5 text-gray-400 mr-auto">
+              גרור הופעה להזזתה בציר הזמן
+            </div>
+          )}
+        </div>
+
+        {/* Tooltip */}
+        {tooltip && (
+          <div
+            className="fixed z-50 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl pointer-events-none"
+            style={{ left: tooltip.x + 12, top: tooltip.y - 90 }}
+          >
+            <p className="font-semibold">{tooltip.slot.artist?.name ?? "ללא אמן"}</p>
+            <p className="text-gray-300">{tooltip.slot.type === "SOUNDCHECK" ? "סאונדצ׳ק" : "הופעה"}</p>
+            <p dir="ltr" className="text-gray-200">
+              {formatTime(tooltip.slot.startTime)} – {formatTime(tooltip.slot.endTime)}
+            </p>
+            {(tooltip.slot.artist?.breakAfter ?? 0) > 0 && (
+              <p className="text-orange-300">הפסקה: {tooltip.slot.artist!.breakAfter} דק׳</p>
+            )}
+            {tooltip.slot.technicianName && (
+              <p className="text-gray-300">🎚️ {tooltip.slot.technicianName}</p>
+            )}
+            {onMoveSlot && tooltip.slot.status !== "CANCELLED" && (
+              <p className="text-gray-500 mt-0.5">גרור להזזה · לחץ לעריכה</p>
+            )}
           </div>
         )}
       </div>
-
-      {/* Tooltip */}
-      {tooltip && (
-        <div
-          className="fixed z-50 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl pointer-events-none"
-          style={{ left: tooltip.x + 8, top: tooltip.y - 60 }}
-        >
-          <p className="font-semibold">{tooltip.slot.artist?.name ?? "ללא אמן"}</p>
-          <p className="text-gray-300">{tooltip.slot.type === "SOUNDCHECK" ? "סאונדצ׳ק" : "הופעה"}</p>
-          <p dir="ltr">{formatTime(tooltip.slot.startTime)} – {formatTime(tooltip.slot.endTime)}</p>
-          {tooltip.slot.technicianName && <p className="text-gray-300">🎚️ {tooltip.slot.technicianName}</p>}
-        </div>
-      )}
-    </div>
+    </DndContext>
   );
 }

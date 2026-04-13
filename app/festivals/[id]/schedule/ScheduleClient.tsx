@@ -96,6 +96,22 @@ function computeConflicts(slots: TimeSlot[]): Set<string> {
   return ids;
 }
 
+// Detect slots that fall within another slot's breakAfter window
+function computeBreakWarnings(slots: TimeSlot[]): Set<string> {
+  const ids = new Set<string>();
+  for (const a of slots) {
+    if (a.status === "CANCELLED" || a.type !== "PERFORMANCE" || !a.artist || a.artist.breakAfter <= 0) continue;
+    const aEnd = new Date(a.endTime).getTime();
+    const breakEnd = aEnd + a.artist.breakAfter * 60000;
+    for (const b of slots) {
+      if (b.id === a.id || b.status === "CANCELLED") continue;
+      const bStart = new Date(b.startTime).getTime();
+      if (bStart > aEnd && bStart < breakEnd) ids.add(b.id);
+    }
+  }
+  return ids;
+}
+
 // Check if HH:MM time falls within a stage window (handles midnight wrap)
 function isOutsideWindow(timeHHMM: string, windowStart: string | null, windowEnd: string | null): boolean {
   if (!windowStart || !windowEnd) return false;
@@ -140,6 +156,42 @@ export default function ScheduleClient({
   const [editingTask, setEditingTask] = useState<SetupTask | null>(null);
   const [submittingTask, setSubmittingTask] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "timeline">("list");
+
+  async function handleMoveSlot(slotId: string, newStart: Date, newEnd: Date) {
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    const toLocal = (d: Date) =>
+      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const fd = new FormData();
+    fd.set("startTime", toLocal(newStart));
+    fd.set("endTime", toLocal(newEnd));
+    const result = await updateTimeSlot(slotId, festivalId, fd);
+    if (result?.error) toast(result.error, "error");
+  }
+
+  function exportCSV() {
+    const BOM = "\uFEFF";
+    const header = "במה,אמן,סוג,התחלה,סיום,סטטוס,הערות";
+    const rows = stagesWithFiltered.flatMap((stage) =>
+      stage.timeSlots.map((slot) =>
+        [
+          `"${stage.name}"`,
+          `"${slot.artist?.name ?? ""}"`,
+          slot.type === "SOUNDCHECK" ? "סאונדצ׳ק" : "הופעה",
+          formatTime(slot.startTime),
+          formatTime(slot.endTime),
+          slot.status === "COMPLETED" ? "הסתיים" : slot.status === "CANCELLED" ? "בוטל" : "מתוכנן",
+          `"${(slot.notes ?? "").replace(/"/g, '""')}"`,
+        ].join(",")
+      )
+    );
+    const csv = BOM + [header, ...rows].join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `schedule-${selectedDate}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   // Edit slot state
   const [editingSlot, setEditingSlot] = useState<TimeSlot | null>(null);
@@ -225,6 +277,20 @@ export default function ScheduleClient({
               ציר זמן
             </button>
           </div>
+          <button
+            onClick={exportCSV}
+            className="bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+            title="ייצוא CSV"
+          >
+            ↓ CSV
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+            title="הדפס"
+          >
+            🖨️
+          </button>
           {isAdmin && (
             <>
               <button
@@ -346,11 +412,13 @@ export default function ScheduleClient({
         <TimelineView
           stages={stagesWithFiltered}
           onEditSlot={isAdmin ? (slot) => setEditingSlot(slot) : undefined}
+          onMoveSlot={isAdmin ? handleMoveSlot : undefined}
         />
       ) : (
         <div className="flex gap-4 overflow-x-auto pb-4">
           {stagesWithFiltered.map((stage) => {
             const conflictIds = computeConflicts(stage.timeSlots);
+            const breakWarningIds = computeBreakWarnings(stage.timeSlots);
             return (
               <div key={stage.id} className="min-w-64 flex-shrink-0">
                 <div className="bg-violet-700 text-white rounded-t-xl px-4 py-2.5 flex items-center justify-between">
@@ -378,6 +446,7 @@ export default function ScheduleClient({
                         festivalId={festivalId}
                         isAdmin={isAdmin}
                         hasConflict={conflictIds.has(slot.id)}
+                        hasBreakWarning={breakWarningIds.has(slot.id)}
                         onEdit={() => setEditingSlot(slot)}
                         onDelete={deleteTimeSlot}
                         onStatusChange={updateTimeSlotStatus}
@@ -697,6 +766,7 @@ function SlotCard({
   festivalId,
   isAdmin,
   hasConflict,
+  hasBreakWarning,
   onEdit,
   onDelete,
   onStatusChange,
@@ -707,6 +777,7 @@ function SlotCard({
   festivalId: string;
   isAdmin: boolean;
   hasConflict: boolean;
+  hasBreakWarning: boolean;
   onEdit: () => void;
   onDelete: (id: string, festivalId: string) => Promise<void>;
   onStatusChange: (id: string, status: string, festivalId: string) => Promise<void>;
@@ -728,7 +799,7 @@ function SlotCard({
   };
 
   return (
-    <div className={`bg-white rounded-xl p-3 border-r-4 shadow-sm ${statusBorder[slot.status] ?? "border-r-gray-300"} ${hasConflict ? "ring-2 ring-red-400 ring-offset-1" : ""}`}>
+    <div className={`bg-white rounded-xl p-3 border-r-4 shadow-sm ${statusBorder[slot.status] ?? "border-r-gray-300"} ${hasConflict ? "ring-2 ring-red-400 ring-offset-1" : hasBreakWarning ? "ring-2 ring-orange-300 ring-offset-1" : ""}`}>
       <div className="flex items-start justify-between gap-1">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 mb-0.5">
@@ -746,6 +817,7 @@ function SlotCard({
               {STATUS_LABELS[slot.status]}
             </span>
             {hasConflict && <span className="text-xs text-red-500 font-medium">⚠️ חפיפה</span>}
+            {!hasConflict && hasBreakWarning && <span className="text-xs text-orange-500 font-medium">⏱ הפסקה קצרה</span>}
           </div>
         </div>
         {isAdmin && (
