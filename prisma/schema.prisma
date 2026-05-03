@@ -118,7 +118,7 @@ model Artist {
   festivalId         String
   festival           Festival @relation(fields: [festivalId], references: [id], onDelete: Cascade)
 
-  artistToken        String   @unique @default(uuid())
+  artistToken        String   @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 
   // פרופיל וסטטוס
   profileImageUrl    String?
