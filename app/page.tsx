@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { prisma } from "@/lib/prisma";
-import { createFestival, deleteFestival, updateFestival, logout } from "@/app/actions";
+import { createFestival, updateFestival, logout } from "@/app/actions";
 import Link from "next/link";
 import FestivalList from "./FestivalList";
 import { requireCurrentUserPage } from "@/lib/auth";
@@ -8,7 +8,10 @@ import { requireCurrentUserPage } from "@/lib/auth";
 export default async function Home() {
   const user = await requireCurrentUserPage();
   const festivals = await prisma.festival.findMany({
-    where: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+    where:
+      user.role === "SUPER_ADMIN"
+        ? {}
+        : { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
     include: {
       owner: {
         select: {
@@ -58,7 +61,6 @@ export default async function Home() {
               festivals={festivals}
               isAdmin={true}
               showOwners={isSuperAdmin}
-              deleteFestival={deleteFestival}
               updateFestival={updateFestival}
             />
           </div>

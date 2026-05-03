@@ -20,7 +20,14 @@ async function requireOwnedFestival(festivalId: string) {
   const festival = await prisma.festival.findFirst({
     where: {
       id: festivalId,
-      ...(user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id }),
+      ...(user.role === "SUPER_ADMIN"
+        ? {}
+        : {
+            OR: [
+              { ownerId: user.id },
+              { members: { some: { userId: user.id } } },
+            ],
+          }),
     },
     select: {
       id: true,
@@ -36,12 +43,26 @@ async function requireOwnedFestival(festivalId: string) {
   return festival;
 }
 
+/** גרסה מחמירה — רק הבעלים (או super_admin) */
+async function requireFestivalOwner(festivalId: string) {
+  const user = await requireAdmin();
+  const festival = await prisma.festival.findFirst({
+    where: {
+      id: festivalId,
+      ...(user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id }),
+    },
+    select: { id: true, ownerId: true },
+  });
+  if (!festival) throw new Error("רק בעל הפסטיבל יכול לבצע פעולה זו");
+  return { festival, user };
+}
+
 async function requireOwnedArtist(artistId: string) {
   const user = await requireAdmin();
   const artist = await prisma.artist.findFirst({
     where: {
       id: artistId,
-      festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+      festival: user.role === "SUPER_ADMIN" ? {} : { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
     },
     select: { id: true, festivalId: true, name: true },
   });
@@ -54,7 +75,7 @@ async function requireOwnedStage(stageId: string) {
   const stage = await prisma.stage.findFirst({
     where: {
       id: stageId,
-      festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+      festival: user.role === "SUPER_ADMIN" ? {} : { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
     },
     select: { id: true, festivalId: true },
   });
@@ -68,7 +89,7 @@ async function requireOwnedTimeSlot(timeSlotId: string) {
     where: {
       id: timeSlotId,
       stage: {
-        festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+        festival: user.role === "SUPER_ADMIN" ? {} : { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
       },
     },
     select: { id: true, stageId: true, stage: { select: { festivalId: true } } },
@@ -82,7 +103,7 @@ async function requireOwnedTeamRole(roleId: string) {
   const role = await prisma.teamMemberRole.findFirst({
     where: {
       id: roleId,
-      festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+      festival: user.role === "SUPER_ADMIN" ? {} : { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
     },
     select: { id: true, festivalId: true },
   });
@@ -95,7 +116,7 @@ async function requireOwnedTeamMember(memberId: string) {
   const member = await prisma.teamMember.findFirst({
     where: {
       id: memberId,
-      festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+      festival: user.role === "SUPER_ADMIN" ? {} : { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
     },
     select: { id: true, festivalId: true },
   });
@@ -108,7 +129,7 @@ async function requireOwnedBudgetItem(itemId: string) {
   const item = await prisma.budgetItem.findFirst({
     where: {
       id: itemId,
-      festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+      festival: user.role === "SUPER_ADMIN" ? {} : { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
     },
     select: { id: true, festivalId: true },
   });
@@ -121,7 +142,7 @@ async function requireOwnedTeamApplication(applicationId: string) {
   const application = await prisma.teamApplication.findFirst({
     where: {
       id: applicationId,
-      festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+      festival: user.role === "SUPER_ADMIN" ? {} : { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
     },
     select: { id: true, festivalId: true, firstName: true, lastName: true, email: true, phone: true, carNumber: true, notes: true },
   });
@@ -134,7 +155,7 @@ async function requireOwnedVendor(vendorId: string) {
   const vendor = await prisma.vendor.findFirst({
     where: {
       id: vendorId,
-      festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+      festival: user.role === "SUPER_ADMIN" ? {} : { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
     },
     select: { id: true, festivalId: true, name: true, vendorToken: true },
   });
@@ -148,7 +169,7 @@ async function requireOwnedArtistPayment(paymentId: string) {
     where: {
       id: paymentId,
       artist: {
-        festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+        festival: user.role === "SUPER_ADMIN" ? {} : { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
       },
     },
     select: { id: true, artistId: true, budgetItemId: true, isPaid: true, artist: { select: { festivalId: true } } },
@@ -163,7 +184,7 @@ async function requireOwnedVendorPayment(paymentId: string) {
     where: {
       id: paymentId,
       vendor: {
-        festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+        festival: user.role === "SUPER_ADMIN" ? {} : { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
       },
     },
     select: { id: true, vendorId: true, budgetItemId: true, isPaid: true, vendor: { select: { festivalId: true } } },
@@ -177,7 +198,7 @@ async function requireOwnedSetupTask(taskId: string) {
   const task = await prisma.festivalSetupTask.findFirst({
     where: {
       id: taskId,
-      festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+      festival: user.role === "SUPER_ADMIN" ? {} : { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
     },
     select: { id: true, festivalId: true },
   });
@@ -190,7 +211,7 @@ async function requireOwnedCommunityContact(contactId: string) {
   const contact = await prisma.festivalCommunityContact.findFirst({
     where: {
       id: contactId,
-      festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+      festival: user.role === "SUPER_ADMIN" ? {} : { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
     },
     select: { id: true, festivalId: true },
   });
@@ -204,7 +225,7 @@ async function requireOwnedArtistContact(contactId: string) {
     where: {
       id: contactId,
       artist: {
-        festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+        festival: user.role === "SUPER_ADMIN" ? {} : { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
       },
     },
     select: { id: true, artistId: true, artist: { select: { festivalId: true } } },
@@ -219,7 +240,7 @@ async function requireOwnedArtistVehicle(vehicleId: string) {
     where: {
       id: vehicleId,
       artist: {
-        festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+        festival: user.role === "SUPER_ADMIN" ? {} : { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
       },
     },
     select: { id: true, artistId: true, artist: { select: { festivalId: true } } },
@@ -234,7 +255,7 @@ async function requireOwnedArtistFile(fileId: string) {
     where: {
       id: fileId,
       artist: {
-        festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+        festival: user.role === "SUPER_ADMIN" ? {} : { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
       },
     },
     select: { id: true, artistId: true, artist: { select: { festivalId: true } } },
@@ -249,7 +270,7 @@ async function requireOwnedStageFile(fileId: string) {
     where: {
       id: fileId,
       stage: {
-        festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+        festival: user.role === "SUPER_ADMIN" ? {} : { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
       },
     },
     select: { id: true, stageId: true, stage: { select: { festivalId: true } } },
@@ -263,7 +284,7 @@ async function requireOwnedFestivalFile(fileId: string) {
   const file = await prisma.festivalFile.findFirst({
     where: {
       id: fileId,
-      festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+      festival: user.role === "SUPER_ADMIN" ? {} : { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
     },
     select: { id: true, festivalId: true },
   });
@@ -277,7 +298,7 @@ async function requireOwnedVendorContact(contactId: string) {
     where: {
       id: contactId,
       vendor: {
-        festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+        festival: user.role === "SUPER_ADMIN" ? {} : { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
       },
     },
     select: { id: true, vendor: { select: { festivalId: true, id: true } } },
@@ -292,7 +313,7 @@ async function requireOwnedVendorVehicle(vehicleId: string) {
     where: {
       id: vehicleId,
       vendor: {
-        festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+        festival: user.role === "SUPER_ADMIN" ? {} : { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
       },
     },
     select: { id: true, vendor: { select: { festivalId: true, id: true } } },
@@ -307,7 +328,7 @@ async function requireOwnedVendorFile(fileId: string) {
     where: {
       id: fileId,
       vendor: {
-        festival: user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id },
+        festival: user.role === "SUPER_ADMIN" ? {} : { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
       },
     },
     select: { id: true, vendor: { select: { festivalId: true, id: true } } },
@@ -410,10 +431,35 @@ export async function updateFestival(id: string, formData: FormData) {
   revalidatePath(`/festivals/${id}`);
 }
 
-export async function deleteFestival(id: string) {
-  await requireOwnedFestival(id);
+export async function deleteFestival(id: string, password: string) {
+  const { user } = await requireFestivalOwner(id);
+  // אימות סיסמה
+  const bcrypt = await import("bcryptjs");
+  const fullUser = await prisma.user.findUnique({ where: { id: user.id }, select: { passwordHash: true } });
+  if (!fullUser) throw new Error("משתמש לא נמצא");
+  const valid = await bcrypt.compare(password, fullUser.passwordHash);
+  if (!valid) throw new Error("סיסמה שגויה");
   await prisma.festival.delete({ where: { id } });
   revalidatePath("/");
+}
+
+export async function addFestivalMember(festivalId: string, email: string) {
+  await requireFestivalOwner(festivalId);
+  const targetUser = await prisma.user.findUnique({ where: { email }, select: { id: true, name: true, email: true } });
+  if (!targetUser) throw new Error("משתמש עם אימייל זה לא נמצא");
+  await prisma.festivalMember.upsert({
+    where: { userId_festivalId: { userId: targetUser.id, festivalId } },
+    create: { userId: targetUser.id, festivalId },
+    update: {},
+  });
+  revalidatePath(`/festivals/${festivalId}/settings`);
+  return targetUser;
+}
+
+export async function removeFestivalMember(festivalId: string, userId: string) {
+  await requireFestivalOwner(festivalId);
+  await prisma.festivalMember.deleteMany({ where: { festivalId, userId } });
+  revalidatePath(`/festivals/${festivalId}/settings`);
 }
 
 // ─── Artists ─────────────────────────────────────────────────────────────────
@@ -1527,4 +1573,76 @@ export async function submitVendorForm(
   });
 
   revalidatePath(`/festivals/${vendor.festivalId}/vendors`);
+}
+
+// ─── Artist Self-Service Form ─────────────────────────────────────────────────
+
+export async function submitArtistForm(
+  token: string,
+  data: {
+    contactName: string;
+    contactPhone: string;
+    contactEmail: string;
+    technicalRiderNotes: string;
+    hospitalityRider: string;
+    notes: string;
+  }
+) {
+  const artist = await prisma.artist.findUnique({ where: { artistToken: token } });
+  if (!artist) throw new Error("לינק לא תקין");
+
+  await prisma.artist.update({
+    where: { id: artist.id },
+    data: {
+      contactPhone: data.contactPhone.trim() || artist.contactPhone,
+      contactEmail: data.contactEmail.trim() || artist.contactEmail,
+      technicalRiderNotes: data.technicalRiderNotes.trim() || null,
+      hospitalityRider: data.hospitalityRider.trim() || null,
+      privateNotes: data.notes.trim() || null,
+    },
+  });
+
+  revalidatePath(`/festivals/${artist.festivalId}/artists`);
+}
+
+// ─── Vehicles (ניהול רכבים) ────────────────────────────────────────────────────
+
+export async function createVehicle(festivalId: string, formData: FormData) {
+  await requireOwnedFestival(festivalId);
+  const vendorId = (formData.get("vendorId") as string) || null;
+  await prisma.vehicle.create({
+    data: {
+      festivalId,
+      driverName: formData.get("driverName") as string,
+      plate: formData.get("plate") as string,
+      vendorId: vendorId || null,
+      notes: (formData.get("notes") as string) || null,
+    },
+  });
+  revalidatePath(`/festivals/${festivalId}/vehicles`);
+}
+
+export async function updateVehicle(id: string, festivalId: string, formData: FormData) {
+  await requireOwnedFestival(festivalId);
+  const vehicle = await prisma.vehicle.findFirst({ where: { id, festivalId }, select: { id: true } });
+  if (!vehicle) throw new Error("אין הרשאה לרכב הזה");
+  const vendorId = (formData.get("vendorId") as string) || null;
+  await prisma.vehicle.update({
+    where: { id },
+    data: {
+      driverName: formData.get("driverName") as string,
+      plate: formData.get("plate") as string,
+      vendorId: vendorId || null,
+      notes: (formData.get("notes") as string) || null,
+    },
+  });
+  revalidatePath(`/festivals/${festivalId}/vehicles`);
+}
+
+export async function deleteVehicle(id: string, festivalId: string) {
+  await requireOwnedFestival(festivalId);
+  const vehicle = await prisma.vehicle.findFirst({ where: { id, festivalId }, select: { id: true } });
+  if (!vehicle) throw new Error("אין הרשאה לרכב הזה");
+  await prisma.vehicle.delete({ where: { id } });
+  revalidatePath(`/festivals/${festivalId}/vehicles`);
 }

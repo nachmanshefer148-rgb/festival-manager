@@ -25,10 +25,12 @@ export default async function FestivalLayout({
   const nav = [
     { href: "", label: "דשבורד", icon: "🏠" },
     { href: "/artists", label: "אמנים", icon: "🎤" },
-    { href: "/schedule", label: "לוח זמנים", icon: "📅" },
+    { href: "/schedule", label: "לוח הופעות", icon: "📅", exact: true },
+    { href: "/schedule/technical", label: "לוז טכני כללי", icon: "📋", exact: true },
     { href: "/stages", label: "במות", icon: "🎪" },
     { href: "/team", label: "צוות", icon: "👥" },
     { href: "/vendors", label: "ספקים", icon: "🏢" },
+    { href: "/vehicles", label: "רכבים", icon: "🚗" },
     ...(canViewDocuments ? [{ href: "/documents", label: "מסמכים", icon: "📁" }] : []),
     ...(canViewBudget ? [{ href: "/budget", label: "תקציב", icon: "💰" }] : []),
   ];
@@ -70,9 +72,14 @@ export default async function FestivalLayout({
             </button>
           </form>
           {isAdmin && (
-            <Link href="/settings" className="text-violet-200 hover:text-white text-xs transition-colors" aria-label="הגדרות">
-              ⚙️
-            </Link>
+            <>
+              <Link href={`/festivals/${id}/settings`} className="text-violet-200 hover:text-white text-xs transition-colors" aria-label="הגדרות פסטיבל">
+                ⚙️
+              </Link>
+              <Link href="/settings" className="text-violet-200 hover:text-white text-xs transition-colors hidden sm:block" aria-label="הגדרות חשבון">
+                👤
+              </Link>
+            </>
           )}
         </div>
       </header>
@@ -80,7 +87,7 @@ export default async function FestivalLayout({
       <div className="flex flex-1 min-h-0">
         <nav className="hidden lg:flex w-56 flex-col bg-white border-l border-gray-200 py-4 shadow-sm shrink-0">
           {nav.map((item) => (
-            <NavLink key={item.href} festivalId={id} href={item.href} icon={item.icon} label={item.label} />
+            <NavLink key={item.href} festivalId={id} href={item.href} icon={item.icon} label={item.label} exact={item.exact} />
           ))}
           {isAdmin && (
             <FestivalViewerShareButton

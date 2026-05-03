@@ -16,7 +16,9 @@ export async function requireOwnedFestivalPage(festivalId: string) {
   const festival = await prisma.festival.findFirst({
     where: {
       id: festivalId,
-      ...(user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id }),
+      ...(user.role === "SUPER_ADMIN"
+        ? {}
+        : { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] }),
     },
   });
 
@@ -31,7 +33,9 @@ export async function requireFestivalAccessPage(festivalId: string): Promise<Fes
     const festival = await prisma.festival.findFirst({
       where: {
         id: festivalId,
-        ...(user.role === "SUPER_ADMIN" ? {} : { ownerId: user.id }),
+        ...(user.role === "SUPER_ADMIN"
+          ? {}
+          : { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] }),
       },
     });
 

@@ -5,6 +5,7 @@ import { requireFestivalAccessPage } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import AddArtistModal from "./AddArtistModal";
 import ArtistsExportButton from "./ArtistsExportButton";
+import ArtistLinkButton from "./ArtistLinkButton";
 
 const STATUS_LABELS: Record<string, string> = {
   confirmed: "מאושר",
@@ -96,6 +97,9 @@ export default async function ArtistsPage({
                         {artist.setDuration}′
                       </span>
                     </div>
+                    {access.isAdmin && (
+                      <ArtistLinkButton artistToken={artist.artistToken} />
+                    )}
                     <span className="text-gray-300 group-hover:text-violet-400 transition-colors text-base">→</span>
                   </div>
                 </div>

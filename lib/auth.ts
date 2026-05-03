@@ -173,3 +173,25 @@ export async function clearSessionCookie() {
   jar.delete(SESSION_COOKIE);
   jar.delete(GUEST_SESSION_COOKIE);
 }
+
+/** בודק אם משתמש הוא בעל פסטיבל או חבר שהוזמן אליו */
+export async function canAccessFestival(userId: string, festivalId: string): Promise<boolean> {
+  const festival = await prisma.festival.findUnique({
+    where: { id: festivalId },
+    select: {
+      ownerId: true,
+      members: { where: { userId }, select: { id: true } },
+    },
+  });
+  if (!festival) return false;
+  return festival.ownerId === userId || festival.members.length > 0;
+}
+
+/** בודק אם משתמש הוא הבעלים הבלעדי של הפסטיבל */
+export async function isFestivalOwner(userId: string, festivalId: string): Promise<boolean> {
+  const festival = await prisma.festival.findUnique({
+    where: { id: festivalId },
+    select: { ownerId: true },
+  });
+  return festival?.ownerId === userId;
+}

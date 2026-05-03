@@ -21,14 +21,12 @@ interface Props {
   festivals: Festival[];
   isAdmin: boolean;
   showOwners?: boolean;
-  deleteFestival: (id: string) => Promise<void>;
   updateFestival: (id: string, fd: FormData) => Promise<void>;
 }
 
-export default function FestivalList({ festivals, isAdmin, showOwners = false, deleteFestival, updateFestival }: Props) {
+export default function FestivalList({ festivals, isAdmin, showOwners = false, updateFestival }: Props) {
   const [editFestival, setEditFestival] = useState<Festival | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [deleting, setDeleting] = useState<string | null>(null);
 
   function toDateInput(d: Date) {
     return new Date(d).toISOString().split("T")[0];
@@ -67,22 +65,6 @@ export default function FestivalList({ festivals, isAdmin, showOwners = false, d
                     title="עריכה"
                   >
                     ✏️
-                  </button>
-                  <button
-                    disabled={deleting === f.id}
-                    onClick={async () => {
-                      if (!window.confirm(`למחוק את הפסטיבל "${f.name}"?`)) return;
-                      setDeleting(f.id);
-                      try {
-                        await deleteFestival(f.id);
-                      } finally {
-                        setDeleting(null);
-                      }
-                    }}
-                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
-                    title="מחק"
-                  >
-                    🗑
                   </button>
                 </div>
               )}
