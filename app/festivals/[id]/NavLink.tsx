@@ -8,16 +8,19 @@ export function NavLink({
   href,
   icon,
   label,
+  exact = false,
 }: {
   festivalId: string;
   href: string;
   icon: string;
   label: string;
+  exact?: boolean;
 }) {
   const pathname = usePathname();
   const fullHref = `/festivals/${festivalId}${href}`;
-  const isActive =
-    href === ""
+  const isActive = exact
+    ? pathname === fullHref
+    : href === ""
       ? pathname === `/festivals/${festivalId}`
       : pathname.startsWith(fullHref);
 

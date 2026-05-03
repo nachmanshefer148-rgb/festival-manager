@@ -9,6 +9,7 @@ interface NavItem {
   href: string;
   label: string;
   icon: string;
+  exact?: boolean;
 }
 
 export default function NavDrawer({
@@ -86,8 +87,9 @@ export default function NavDrawer({
         <nav className="flex flex-col py-2 flex-1">
           {nav.map((item) => {
             const fullHref = `/festivals/${festivalId}${item.href}`;
-            const isActive =
-              item.href === ""
+            const isActive = item.exact
+              ? pathname === fullHref
+              : item.href === ""
                 ? pathname === `/festivals/${festivalId}`
                 : pathname.startsWith(fullHref);
 

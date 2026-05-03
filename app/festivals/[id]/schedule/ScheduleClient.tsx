@@ -50,6 +50,7 @@ interface Stage {
 
 interface Props {
   festivalId: string;
+  section: "performances" | "technical";
   festival: { startDate: string; endDate: string };
   stages: Stage[];
   artists: Artist[];
@@ -128,6 +129,7 @@ function isOutsideWindow(timeHHMM: string, windowStart: string | null, windowEnd
 
 export default function ScheduleClient({
   festivalId,
+  section,
   festival,
   stages,
   artists,
@@ -156,6 +158,8 @@ export default function ScheduleClient({
   const [editingTask, setEditingTask] = useState<SetupTask | null>(null);
   const [submittingTask, setSubmittingTask] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "timeline">("list");
+  const showPerformances = section === "performances";
+  const showTechnical = section === "technical";
 
   // Optimistic slot overrides for drag feedback (cleared on server revalidation)
   const [optimisticSlots, setOptimisticSlots] = useState<Record<string, { startTime: string; endTime: string }>>({});
@@ -307,66 +311,80 @@ export default function ScheduleClient({
     <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-gray-900">📅 לוח זמנים</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          {showTechnical ? "📋 לוז טכני כללי" : "📅 לוח הופעות"}
+        </h1>
         <div className="flex gap-2 items-center">
-          {/* View toggle */}
-          <div className="flex rounded-xl border border-gray-200 overflow-hidden text-sm">
-            <button
-              onClick={() => setViewMode("list")}
-              className={`px-3 py-1.5 transition-colors ${viewMode === "list" ? "bg-violet-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-            >
-              רשימה
-            </button>
-            <button
-              onClick={() => setViewMode("timeline")}
-              className={`px-3 py-1.5 transition-colors ${viewMode === "timeline" ? "bg-violet-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-            >
-              ציר זמן
-            </button>
-          </div>
-          <button
-            onClick={exportCSV}
-            className="bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
-            title="ייצוא CSV"
-          >
-            ↓ CSV
-          </button>
-          <button
-            onClick={exportICal}
-            className="bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
-            title="ייצוא iCal (Google Calendar)"
-          >
-            📅 iCal
-          </button>
-          <button
-            onClick={() => window.print()}
-            className="bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
-            title="הדפס"
-          >
-            🖨️
-          </button>
-          {isAdmin && (
+          {showPerformances && (
             <>
-              <button
-                onClick={() => setShowAddStage(true)}
-                className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
-              >
-                + הוסף שלב
-              </button>
-              {stages.length > 0 && artists.length > 0 && (
+              <div className="flex rounded-xl border border-gray-200 overflow-hidden text-sm">
                 <button
-                  onClick={() => setShowAddSlot(true)}
-                  className="bg-violet-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-violet-700 transition-colors"
+                  onClick={() => setViewMode("list")}
+                  className={`px-3 py-1.5 transition-colors ${viewMode === "list" ? "bg-violet-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
                 >
-                  + תזמן
+                  רשימה
                 </button>
+                <button
+                  onClick={() => setViewMode("timeline")}
+                  className={`px-3 py-1.5 transition-colors ${viewMode === "timeline" ? "bg-violet-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                >
+                  ציר זמן
+                </button>
+              </div>
+              <button
+                onClick={exportCSV}
+                className="bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+                title="ייצוא CSV"
+              >
+                ↓ CSV
+              </button>
+              <button
+                onClick={exportICal}
+                className="bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+                title="ייצוא iCal (Google Calendar)"
+              >
+                📅 iCal
+              </button>
+              <button
+                onClick={() => window.print()}
+                className="bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+                title="הדפס"
+              >
+                🖨️
+              </button>
+              {isAdmin && (
+                <>
+                  <button
+                    onClick={() => setShowAddStage(true)}
+                    className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+                  >
+                    + הוסף שלב
+                  </button>
+                  {stages.length > 0 && artists.length > 0 && (
+                    <button
+                      onClick={() => setShowAddSlot(true)}
+                      className="bg-violet-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-violet-700 transition-colors"
+                    >
+                      + תזמן
+                    </button>
+                  )}
+                </>
               )}
             </>
+          )}
+          {showTechnical && isAdmin && (
+            <button
+              onClick={() => setShowAddTask(true)}
+              className="bg-violet-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-violet-700 transition-colors"
+            >
+              + הוסף משימה
+            </button>
           )}
         </div>
       </div>
 
       {/* Setup Tasks */}
+      {showTechnical && (
       <div className="mb-4 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         <button
           onClick={() => setShowSetupTasks(!showSetupTasks)}
@@ -427,9 +445,10 @@ export default function ScheduleClient({
           </div>
         )}
       </div>
+      )}
 
       {/* Date tabs */}
-      {dates.length > 1 && (
+      {showPerformances && dates.length > 1 && (
         <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
           {dates.map((d) => (
             <button
@@ -446,7 +465,7 @@ export default function ScheduleClient({
       )}
 
       {/* Content */}
-      {stages.length === 0 ? (
+      {showPerformances && (stages.length === 0 ? (
         isAdmin ? (
           <button
             onClick={() => setShowAddStage(true)}
@@ -522,7 +541,7 @@ export default function ScheduleClient({
             );
           })}
         </div>
-      )}
+      ))}
 
       {/* Add Stage Modal */}
       {showAddStage && (
