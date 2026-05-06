@@ -1586,6 +1586,8 @@ export async function submitArtistForm(
     technicalRiderNotes: string;
     hospitalityRider: string;
     notes: string;
+    contacts: { name: string; role: string; phone: string; email: string; idNumber: string }[];
+    vehicles: { plateNumber: string; vehicleType: string; arrivalTime: string }[];
   }
 ) {
   const artist = await prisma.artist.findUnique({ where: { artistToken: token } });
@@ -1602,7 +1604,32 @@ export async function submitArtistForm(
     },
   });
 
+  if (data.contacts.length > 0) {
+    await prisma.artistContact.createMany({
+      data: data.contacts.map((c) => ({
+        artistId: artist.id,
+        name: c.name.trim(),
+        role: c.role.trim() || null,
+        phone: c.phone.trim() || null,
+        email: c.email.trim() || null,
+        idNumber: c.idNumber.trim() || null,
+      })),
+    });
+  }
+
+  if (data.vehicles.length > 0) {
+    await prisma.artistVehicle.createMany({
+      data: data.vehicles.map((v) => ({
+        artistId: artist.id,
+        plateNumber: v.plateNumber.trim(),
+        vehicleType: v.vehicleType.trim() || null,
+        arrivalTime: v.arrivalTime.trim() || null,
+      })),
+    });
+  }
+
   revalidatePath(`/festivals/${artist.festivalId}/artists`);
+  revalidatePath(`/festivals/${artist.festivalId}/vehicles`);
 }
 
 // ─── Vehicles (ניהול רכבים) ────────────────────────────────────────────────────
