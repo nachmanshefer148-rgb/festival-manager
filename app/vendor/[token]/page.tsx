@@ -13,7 +13,7 @@ export default async function VendorFormPage({
   const vendor = await prisma.vendor.findUnique({
     where: { vendorToken: token },
     include: {
-      festival: { select: { name: true } },
+      festival: { select: { name: true, logoUrl: true } },
       contacts: true,
       vehicles: true,
     },
@@ -35,7 +35,12 @@ export default async function VendorFormPage({
     <div className="min-h-screen bg-gray-50 flex items-start justify-center p-4 pt-12" dir="rtl">
       <div className="w-full max-w-xl">
         <div className="text-center mb-8">
-          <div className="text-4xl mb-3">🏢</div>
+          {vendor.festival.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={vendor.festival.logoUrl} alt="לוגו פסטיבל" className="h-16 w-auto object-contain mx-auto mb-3" />
+          ) : (
+            <div className="text-4xl mb-3">🏢</div>
+          )}
           <h1 className="text-2xl font-bold text-gray-900">{vendor.name}</h1>
           <p className="text-gray-500 text-sm mt-1">{vendor.festival.name}</p>
           <p className="text-gray-400 text-xs mt-1">מלא/י את פרטי אנשי הקשר והרכבים שלך</p>

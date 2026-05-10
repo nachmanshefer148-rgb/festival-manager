@@ -64,6 +64,7 @@ interface Props {
   festivalName: string;
   festivalStartDate: string;
   festivalEndDate: string;
+  festivalLogoUrl: string | null;
   directVehicles: DirectVehicle[];
   vendorVehicles: VendorVehicle[];
   artistVehicles: ArtistVehicle[];
@@ -156,6 +157,7 @@ export default function VehicleClient({
   festivalName,
   festivalStartDate,
   festivalEndDate,
+  festivalLogoUrl,
   directVehicles,
   vendorVehicles,
   artistVehicles,
@@ -226,6 +228,10 @@ export default function VehicleClient({
           style={{ fontFamily: "sans-serif", padding: "32px", maxWidth: "600px", margin: "0 auto" }}
         >
           <div style={{ textAlign: "center", borderBottom: "2px solid #7c3aed", paddingBottom: "16px", marginBottom: "24px" }}>
+            {festivalLogoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={festivalLogoUrl} alt="לוגו פסטיבל" style={{ height: "48px", objectFit: "contain", marginBottom: "8px" }} />
+            )}
             <h1 style={{ color: "#7c3aed", fontSize: "24px", margin: 0 }}>{festivalName}</h1>
             <p style={{ color: "#6b7280", fontSize: "14px", margin: "4px 0 0" }}>
               {formatDate(festivalStartDate)} – {formatDate(festivalEndDate)}

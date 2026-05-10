@@ -47,7 +47,7 @@ export default async function VehiclesPage({
       }),
       prisma.festival.findUnique({
         where: { id },
-        select: { name: true, startDate: true, endDate: true },
+        select: { name: true, startDate: true, endDate: true, logoUrl: true },
       }),
     ]);
 
@@ -57,6 +57,7 @@ export default async function VehiclesPage({
       festivalName={festival?.name ?? ""}
       festivalStartDate={festival?.startDate.toISOString() ?? ""}
       festivalEndDate={festival?.endDate.toISOString() ?? ""}
+      festivalLogoUrl={festival?.logoUrl ?? null}
       directVehicles={directVehicles.map((v) => ({
         ...v,
         createdAt: v.createdAt.toISOString(),

@@ -54,6 +54,10 @@ export default async function FestivalLayout({
             ← כל הפסטיבלים
           </Link>
           <span className="text-violet-400 hidden sm:block">|</span>
+          {festival.logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={festival.logoUrl} alt="לוגו פסטיבל" className="h-8 w-8 object-contain rounded shrink-0 bg-white/10 p-0.5" />
+          )}
           <div className="min-w-0">
             <span className="font-bold text-base sm:text-lg truncate block">{festival.name}</span>
             <span className="text-violet-200 text-xs hidden md:block">
