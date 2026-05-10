@@ -1,9 +1,8 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import { createArtist, createArtistContact, createArtistVehicle, deleteArtist } from "@/app/actions";
+import { createArtist, createArtistContact, createArtistVehicle } from "@/app/actions";
 import { requireFestivalAccessPage } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
-import DeleteButton from "@/app/components/DeleteButton";
 import AddArtistModal from "./AddArtistModal";
 import ArtistsExportButton from "./ArtistsExportButton";
 import ArtistLinkButton from "./ArtistLinkButton";
@@ -99,18 +98,6 @@ export default async function ArtistsPage({
                     </div>
                     {access.isAdmin && (
                       <ArtistLinkButton artistToken={artist.artistToken} />
-                    )}
-                    {access.isAdmin && (
-                      <DeleteButton
-                        action={async () => {
-                          "use server";
-                          await deleteArtist(artist.id, id);
-                        }}
-                        confirm={`למחוק את האמן "${artist.name}"? כל הקבצים, אנשי הקשר והתשלומים המשויכים יימחקו גם הם.`}
-                        className="text-xs px-2 py-1 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors whitespace-nowrap"
-                      >
-                        🗑 מחק
-                      </DeleteButton>
                     )}
                     <span className="text-gray-300 group-hover:text-violet-400 transition-colors text-base">→</span>
                   </div>
