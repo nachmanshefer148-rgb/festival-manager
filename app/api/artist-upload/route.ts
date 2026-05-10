@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
 
     const filename = `${randomUUID()}${getExtension(file.name)}`;
     const blob = await put(`artist-files/${filename}`, file, {
-      access: "private",
+      access: "public",
       contentType: file.type,
     });
 

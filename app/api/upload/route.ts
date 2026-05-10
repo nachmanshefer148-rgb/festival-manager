@@ -17,12 +17,12 @@ const ALLOWED_TYPES = [
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
 const FOLDER_CONFIG = {
-  "artist-images": { access: "public", storageFolder: "artist-images" },
-  "artist-files": { access: "private", storageFolder: "artist-files" },
-  "stage-files": { access: "private", storageFolder: "stage-files" },
-  "festival-files": { access: "private", storageFolder: "festival-files" },
-  "vendor-files": { access: "private", storageFolder: "vendor-files" },
-  "festival-logo": { access: "public", storageFolder: "festival-logo" },
+  "artist-images": { storageFolder: "artist-images" },
+  "artist-files": { storageFolder: "artist-files" },
+  "stage-files": { storageFolder: "stage-files" },
+  "festival-files": { storageFolder: "festival-files" },
+  "vendor-files": { storageFolder: "vendor-files" },
+  "festival-logo": { storageFolder: "festival-logo" },
 } as const;
 
 type UploadFolder = keyof typeof FOLDER_CONFIG;
@@ -69,14 +69,9 @@ export async function POST(req: NextRequest) {
   const filename = `${randomUUID()}${getExtension(file.name)}`;
 
   const blob = await put(`${folder.storageFolder}/${filename}`, file, {
-    access: folder.access,
+    access: "public",
     contentType: file.type,
   });
 
-  const url =
-    folder.access === "private"
-      ? `/api/files?pathname=${encodeURIComponent(blob.pathname)}`
-      : blob.url;
-
-  return NextResponse.json({ url });
+  return NextResponse.json({ url: blob.url });
 }
