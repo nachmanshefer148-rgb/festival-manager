@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { formatTime, STATUS_LABELS, STATUS_COLORS } from "@/lib/utils";
 import { useToast } from "@/app/components/Toast";
 import { useConfirm } from "@/app/components/ConfirmDialog";
@@ -180,6 +181,7 @@ export default function ArtistDetailClient({
 }: Props) {
   const { toast } = useToast();
   const confirm = useConfirm();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"info" | "contacts" | "vehicles" | "rider" | "schedule" | "files" | "payments">("info");
   const [showEdit, setShowEdit] = useState(false);
   const [submittingEdit, setSubmittingEdit] = useState(false);
@@ -199,6 +201,19 @@ export default function ArtistDetailClient({
   };
 
   const whatsappPhone = (artist.contactPhone ?? "").replace(/\D/g, "").replace(/^0/, "972");
+
+  async function handleDeleteArtist() {
+    const ok = await confirm({
+      message: `למחוק את האמן "${artist.name}"? כל הקבצים, אנשי הקשר והתשלומים המשויכים יימחקו גם הם.`,
+      danger: true,
+      confirmLabel: "מחק",
+    });
+    if (!ok) return;
+    await deleteArtist(artist.id, festivalId);
+    toast("האמן נמחק");
+    router.push(`/festivals/${festivalId}/artists`);
+    router.refresh();
+  }
 
   async function handleImageUpload(file: File) {
     setImageUploading(true);
@@ -548,11 +563,20 @@ export default function ArtistDetailClient({
               </div>
             )}
 
-            <div className="flex gap-2 justify-end pt-2">
+            <div className="flex items-center justify-between gap-2 pt-2">
+              <button
+                type="button"
+                onClick={handleDeleteArtist}
+                className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-xl transition"
+              >
+                🗑 מחק אמן
+              </button>
+              <div className="flex gap-2">
               <button type="button" onClick={() => setShowEdit(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition">ביטול</button>
               <button type="submit" disabled={submittingEdit} className="px-4 py-2 text-sm bg-violet-600 text-white rounded-xl hover:bg-violet-700 transition disabled:opacity-60">
                 {submittingEdit ? "שומר..." : "שמור שינויים"}
               </button>
+              </div>
             </div>
           </form>
         </Modal>
