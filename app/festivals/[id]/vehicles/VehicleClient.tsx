@@ -284,6 +284,16 @@ export default function VehicleClient({
               📷 סרוק QR
             </button>
             {isAdmin && (
+              <a
+                href={`/festivals/${festivalId}/vehicles/permit-preview`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-gray-100 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-200 transition"
+              >
+                👁️ עיצובי אישור
+              </a>
+            )}
+            {isAdmin && (
               <button
                 onClick={() => setShowAdd(true)}
                 className="bg-violet-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-violet-700 transition"

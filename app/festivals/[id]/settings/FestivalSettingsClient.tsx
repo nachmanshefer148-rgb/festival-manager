@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 interface Member {
@@ -15,26 +15,65 @@ interface Props {
   festivalId: string;
   festivalName: string;
   isOwner: boolean;
+  logoUrl: string | null;
   members: Member[];
   addFestivalMember: (festivalId: string, email: string) => Promise<{ id: string; name: string; email: string }>;
   removeFestivalMember: (festivalId: string, userId: string) => Promise<void>;
   deleteFestival: (id: string, password: string) => Promise<void>;
+  updateFestivalLogo: (festivalId: string, logoUrl: string | null) => Promise<void>;
 }
 
 export default function FestivalSettingsClient({
   festivalId,
   festivalName,
   isOwner,
+  logoUrl: initialLogoUrl,
   members: initialMembers,
   addFestivalMember,
   removeFestivalMember,
   deleteFestival,
+  updateFestivalLogo,
 }: Props) {
   const router = useRouter();
   const [members, setMembers] = useState(initialMembers);
   const [emailInput, setEmailInput] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Logo state
+  const [logoUrl, setLogoUrl] = useState<string | null>(initialLogoUrl);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoUploading(true);
+    setLogoError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload?folder=festival-logo", { method: "POST", body: formData });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error ?? "שגיאה בהעלאה");
+      }
+      const { url } = await res.json();
+      setLogoUrl(url);
+      await updateFestivalLogo(festivalId, url);
+    } catch (err: unknown) {
+      setLogoError(err instanceof Error ? err.message : "שגיאה בהעלאה");
+    } finally {
+      setLogoUploading(false);
+      if (logoInputRef.current) logoInputRef.current.value = "";
+    }
+  }
+
+  async function handleLogoRemove() {
+    setLogoUrl(null);
+    await updateFestivalLogo(festivalId, null);
+  }
 
   // Danger Zone state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -89,6 +128,55 @@ export default function FestivalSettingsClient({
   return (
     <div className="max-w-2xl mx-auto space-y-6 py-2" dir="rtl">
       <h1 className="text-2xl font-bold text-violet-900">⚙️ הגדרות פסטיבל</h1>
+
+      {/* לוגו פסטיבל */}
+      <div className="bg-white rounded-2xl border border-violet-100 shadow-sm p-6">
+        <h2 className="font-semibold text-gray-800 mb-1">לוגו פסטיבל</h2>
+        <p className="text-xs text-gray-400 mb-4">
+          הלוגו יופיע על אישורי הכניסה לרכבים ומסמכים אחרים.
+        </p>
+        <div className="flex items-center gap-4">
+          {logoUrl ? (
+            <div className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={logoUrl} alt="לוגו פסטיבל" className="h-20 w-20 object-contain rounded-xl border border-gray-200 bg-gray-50" />
+              {isOwner && (
+                <button
+                  onClick={handleLogoRemove}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"
+                  title="הסר לוגו"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="h-20 w-20 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center text-gray-300 text-2xl bg-gray-50">
+              🎵
+            </div>
+          )}
+          {isOwner && (
+            <div>
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleLogoUpload}
+                className="hidden"
+                id="logo-upload"
+              />
+              <label
+                htmlFor="logo-upload"
+                className={`cursor-pointer inline-block bg-violet-50 border border-violet-200 text-violet-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-violet-100 transition ${logoUploading ? "opacity-50 pointer-events-none" : ""}`}
+              >
+                {logoUploading ? "מעלה..." : logoUrl ? "החלף לוגו" : "העלה לוגו"}
+              </label>
+              <p className="text-xs text-gray-400 mt-1">JPEG, PNG, WebP — עד 10MB</p>
+              {logoError && <p className="text-red-500 text-xs mt-1">{logoError}</p>}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* חברי פסטיבל */}
       <div className="bg-white rounded-2xl border border-violet-100 shadow-sm p-6">

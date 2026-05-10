@@ -48,6 +48,7 @@ model Festival {
   viewerAccessEnabled Boolean @default(false)
   viewerShowBudget Boolean @default(false)
   viewerShowDocuments Boolean @default(false)
+  logoUrl     String?
   owner       User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
 
   stages            Stage[]

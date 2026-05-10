@@ -431,6 +431,17 @@ export async function updateFestival(id: string, formData: FormData) {
   revalidatePath(`/festivals/${id}`);
 }
 
+export async function updateFestivalLogo(festivalId: string, logoUrl: string | null) {
+  await requireOwnedFestival(festivalId);
+  await prisma.festival.update({
+    where: { id: festivalId },
+    data: { logoUrl },
+  });
+  revalidatePath(`/festivals/${festivalId}`);
+  revalidatePath(`/festivals/${festivalId}/settings`);
+  revalidatePath(`/festivals/${festivalId}/vehicles/permit-preview`);
+}
+
 export async function deleteFestival(id: string, password: string) {
   const { user } = await requireFestivalOwner(id);
   // אימות סיסמה
@@ -632,6 +643,7 @@ export async function createArtistFile(
     data: { artistId, name, url, isExternal, fileType: fileType || null },
   });
   revalidatePath(`/festivals/${festivalId}/artists/${artistId}`);
+  revalidatePath(`/festivals/${festivalId}/documents`);
 }
 
 export async function deleteArtistFile(id: string, artistId: string, festivalId: string) {
@@ -640,6 +652,7 @@ export async function deleteArtistFile(id: string, artistId: string, festivalId:
   if (file.artistId !== artistId) throw new Error("אי התאמה בין קובץ לאמן");
   await prisma.artistFile.delete({ where: { id } });
   revalidatePath(`/festivals/${festivalId}/artists/${artistId}`);
+  revalidatePath(`/festivals/${festivalId}/documents`);
 }
 
 // ─── Artist Payments ──────────────────────────────────────────────────────────
@@ -781,6 +794,7 @@ export async function createStageFile(
   assertFestivalMatch(stage.festivalId, festivalId);
   await prisma.stageFile.create({ data: { stageId, name, url, isExternal, fileType } });
   revalidatePath(`/festivals/${festivalId}/stages`);
+  revalidatePath(`/festivals/${festivalId}/documents`);
 }
 
 export async function deleteStageFile(id: string, stageId: string, festivalId: string) {
@@ -789,6 +803,7 @@ export async function deleteStageFile(id: string, stageId: string, festivalId: s
   if (file.stageId !== stageId) throw new Error("אי התאמה בין קובץ לבמה");
   await prisma.stageFile.delete({ where: { id } });
   revalidatePath(`/festivals/${festivalId}/stages`);
+  revalidatePath(`/festivals/${festivalId}/documents`);
 }
 
 export async function createFestivalFile(
@@ -1424,6 +1439,7 @@ export async function createVendorFile(
   });
 
   revalidatePath(`/festivals/${festivalId}/vendors`);
+  revalidatePath(`/festivals/${festivalId}/documents`);
 }
 
 export async function deleteVendorFile(id: string, festivalId: string) {
@@ -1431,6 +1447,7 @@ export async function deleteVendorFile(id: string, festivalId: string) {
   assertFestivalMatch(file.vendor.festivalId, festivalId);
   await prisma.vendorFile.delete({ where: { id } });
   revalidatePath(`/festivals/${festivalId}/vendors`);
+  revalidatePath(`/festivals/${festivalId}/documents`);
 }
 
 // ─── Vendor Self-Service Form ─────────────────────────────────────────────────

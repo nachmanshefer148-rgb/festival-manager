@@ -22,6 +22,7 @@ const FOLDER_CONFIG = {
   "stage-files": { access: "private", storageFolder: "stage-files" },
   "festival-files": { access: "private", storageFolder: "festival-files" },
   "vendor-files": { access: "private", storageFolder: "vendor-files" },
+  "festival-logo": { access: "public", storageFolder: "festival-logo" },
 } as const;
 
 type UploadFolder = keyof typeof FOLDER_CONFIG;

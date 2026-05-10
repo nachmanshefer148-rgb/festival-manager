@@ -5,6 +5,7 @@ import {
   addFestivalMember,
   removeFestivalMember,
   deleteFestival,
+  updateFestivalLogo,
 } from "@/app/actions";
 import FestivalSettingsClient from "./FestivalSettingsClient";
 
@@ -29,6 +30,7 @@ export default async function FestivalSettingsPage({
       festivalId={id}
       festivalName={festival.name}
       isOwner={isOwner}
+      logoUrl={festival.logoUrl ?? null}
       members={members.map((m) => ({
         id: m.id,
         userId: m.userId,
@@ -39,6 +41,7 @@ export default async function FestivalSettingsPage({
       addFestivalMember={addFestivalMember}
       removeFestivalMember={removeFestivalMember}
       deleteFestival={deleteFestival}
+      updateFestivalLogo={updateFestivalLogo}
     />
   );
 }
