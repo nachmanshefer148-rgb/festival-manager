@@ -89,8 +89,9 @@ export default function ArtistForm({ token, initialData, submitAction }: Props) 
     setError(null);
     try {
       const fd = new FormData();
+      fd.append("token", token);
       fd.append("file", file);
-      const res = await fetch(`/api/artist-upload?token=${encodeURIComponent(token)}`, {
+      const res = await fetch("/api/artist-upload", {
         method: "POST",
         body: fd,
       });

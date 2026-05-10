@@ -26,42 +26,52 @@ function getExtension(filename: string): string {
 }
 
 export async function POST(req: NextRequest) {
-  const token = req.nextUrl.searchParams.get("token");
-  if (!token) {
-    return NextResponse.json({ error: "חסר טוקן אמן" }, { status: 400 });
+  try {
+    const formData = await req.formData();
+    const rawToken = formData.get("token");
+    const token =
+      typeof rawToken === "string" && rawToken.trim()
+        ? rawToken.trim()
+        : req.nextUrl.searchParams.get("token");
+
+    if (!token) {
+      return NextResponse.json({ error: "חסר טוקן אמן" }, { status: 400 });
+    }
+
+    const artist = await prisma.artist.findUnique({
+      where: { artistToken: token },
+      select: { id: true },
+    });
+
+    if (!artist) {
+      return NextResponse.json({ error: "לינק לא תקין" }, { status: 403 });
+    }
+
+    const file = formData.get("file") as File | null;
+
+    if (!file) {
+      return NextResponse.json({ error: "לא נשלח קובץ" }, { status: 400 });
+    }
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      return NextResponse.json({ error: "סוג קובץ לא נתמך" }, { status: 400 });
+    }
+
+    if (file.size > MAX_SIZE) {
+      return NextResponse.json({ error: "הקובץ גדול מדי (מקסימום 10MB)" }, { status: 400 });
+    }
+
+    const filename = `${randomUUID()}${getExtension(file.name)}`;
+    const blob = await put(`artist-files/${filename}`, file, {
+      access: "private",
+      contentType: file.type,
+    });
+
+    return NextResponse.json({
+      url: `/api/files?pathname=${encodeURIComponent(blob.pathname)}`,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "שגיאה בהעלאת הקובץ";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  const artist = await prisma.artist.findUnique({
-    where: { artistToken: token },
-    select: { id: true },
-  });
-
-  if (!artist) {
-    return NextResponse.json({ error: "לינק לא תקין" }, { status: 403 });
-  }
-
-  const formData = await req.formData();
-  const file = formData.get("file") as File | null;
-
-  if (!file) {
-    return NextResponse.json({ error: "לא נשלח קובץ" }, { status: 400 });
-  }
-
-  if (!ALLOWED_TYPES.includes(file.type)) {
-    return NextResponse.json({ error: "סוג קובץ לא נתמך" }, { status: 400 });
-  }
-
-  if (file.size > MAX_SIZE) {
-    return NextResponse.json({ error: "הקובץ גדול מדי (מקסימום 10MB)" }, { status: 400 });
-  }
-
-  const filename = `${randomUUID()}${getExtension(file.name)}`;
-  const blob = await put(`artist-files/${filename}`, file, {
-    access: "private",
-    contentType: file.type,
-  });
-
-  return NextResponse.json({
-    url: `/api/files?pathname=${encodeURIComponent(blob.pathname)}`,
-  });
 }
