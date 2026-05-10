@@ -1,6 +1,12 @@
 export const dynamic = "force-dynamic";
 import { notFound } from "next/navigation";
-import { createFestivalFile, deleteFestivalFile } from "@/app/actions";
+import {
+  createFestivalFile,
+  deleteArtistFile,
+  deleteFestivalFile,
+  deleteStageFile,
+  deleteVendorFile,
+} from "@/app/actions";
 import { requireFestivalAccessPage } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import DocumentsClient from "./DocumentsClient";
@@ -118,7 +124,10 @@ export default async function DocumentsPage({
       communityContacts={communityContacts}
       isAdmin={access.isAdmin}
       createFestivalFile={createFestivalFile}
+      deleteArtistFile={deleteArtistFile}
       deleteFestivalFile={deleteFestivalFile}
+      deleteStageFile={deleteStageFile}
+      deleteVendorFile={deleteVendorFile}
     />
   );
 }

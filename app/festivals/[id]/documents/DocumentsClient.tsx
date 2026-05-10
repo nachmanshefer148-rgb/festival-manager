@@ -175,7 +175,10 @@ interface Props {
   communityContacts: CommunityContact[];
   isAdmin: boolean;
   createFestivalFile: (festivalId: string, name: string, url: string, isExternal: boolean, fileType: string) => Promise<void>;
+  deleteArtistFile: (id: string, artistId: string, festivalId: string) => Promise<void>;
   deleteFestivalFile: (id: string, festivalId: string) => Promise<void>;
+  deleteStageFile: (id: string, stageId: string, festivalId: string) => Promise<void>;
+  deleteVendorFile: (id: string, festivalId: string) => Promise<void>;
 }
 
 // ─── Aggregated file type ─────────────────────────────────────────────────────
@@ -667,16 +670,14 @@ const FILE_TYPE_ICONS: Record<string, string> = {
 
 function AllDocsSection({
   files,
-  festivalId,
   isAdmin,
   onAddFestivalFile,
-  onDeleteFestivalFile,
+  onDeleteFile,
 }: {
   files: AggregatedFile[];
-  festivalId: string;
   isAdmin: boolean;
   onAddFestivalFile: (name: string, url: string, isExternal: boolean, fileType: string) => Promise<void>;
-  onDeleteFestivalFile: (id: string) => Promise<void>;
+  onDeleteFile: (file: AggregatedFile) => Promise<void>;
 }) {
   const [search, setSearch] = useState("");
   const [filterSource, setFilterSource] = useState<SourceType | "all">("all");
@@ -729,10 +730,13 @@ function AllDocsSection({
   }
 
   async function handleDelete(file: AggregatedFile) {
-    if (file.source !== "festival") return;
-    const ok = await confirm(`למחוק את "${file.name}"?`);
+    const ok = await confirm({
+      message: `למחוק את "${file.name}"?`,
+      danger: true,
+      confirmLabel: "מחק",
+    });
     if (!ok) return;
-    await onDeleteFestivalFile(file.id);
+    await onDeleteFile(file);
     toast("הקובץ נמחק");
   }
 
@@ -846,10 +850,11 @@ function AllDocsSection({
                   <span className="text-xs text-gray-300">{new Date(f.createdAt).toLocaleDateString("he-IL")}</span>
                 </div>
               </div>
-              {isAdmin && f.source === "festival" && (
+              {isAdmin && (
                 <button
                   onClick={() => handleDelete(f)}
                   className="text-gray-300 hover:text-red-400 transition text-sm shrink-0"
+                  title="מחק מסמך"
                 >
                   ✕
                 </button>
@@ -876,7 +881,10 @@ export default function DocumentsClient({
   communityContacts,
   isAdmin,
   createFestivalFile,
+  deleteArtistFile,
   deleteFestivalFile,
+  deleteStageFile,
+  deleteVendorFile,
 }: Props) {
   const { toast } = useToast();
 
@@ -916,6 +924,27 @@ export default function DocumentsClient({
     await deleteFestivalFile(id, festivalId);
   }
 
+  async function handleDeleteFile(file: AggregatedFile) {
+    switch (file.source) {
+      case "festival":
+        await handleDeleteFestivalFile(file.id);
+        return;
+      case "artist":
+        if (!file.sourceId) throw new Error("חסר מזהה אמן למחיקת הקובץ");
+        await deleteArtistFile(file.id, file.sourceId, festivalId);
+        return;
+      case "stage":
+        if (!file.sourceId) throw new Error("חסר מזהה במה למחיקת הקובץ");
+        await deleteStageFile(file.id, file.sourceId, festivalId);
+        return;
+      case "vendor":
+        await deleteVendorFile(file.id, festivalId);
+        return;
+      default:
+        throw new Error("סוג מסמך לא נתמך למחיקה");
+    }
+  }
+
   return (
     <div className="space-y-6" dir="rtl">
       <div>
@@ -935,10 +964,9 @@ export default function DocumentsClient({
 
       <AllDocsSection
         files={allFiles}
-        festivalId={festivalId}
         isAdmin={isAdmin}
         onAddFestivalFile={handleAddFestivalFile}
-        onDeleteFestivalFile={handleDeleteFestivalFile}
+        onDeleteFile={handleDeleteFile}
       />
     </div>
   );

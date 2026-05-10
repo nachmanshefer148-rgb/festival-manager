@@ -1,8 +1,9 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import { createArtist, createArtistContact, createArtistVehicle } from "@/app/actions";
+import { createArtist, createArtistContact, createArtistVehicle, deleteArtist } from "@/app/actions";
 import { requireFestivalAccessPage } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
+import DeleteButton from "@/app/components/DeleteButton";
 import AddArtistModal from "./AddArtistModal";
 import ArtistsExportButton from "./ArtistsExportButton";
 import ArtistLinkButton from "./ArtistLinkButton";
@@ -64,13 +65,12 @@ export default async function ArtistsPage({
             const scheduledCount = artist.timeSlots.filter((slot) => slot.status === "SCHEDULED").length;
 
             return (
-              <Link
+              <div
                 key={artist.id}
-                href={`/festivals/${id}/artists/${artist.id}`}
-                className="group block bg-white rounded-2xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow"
+                className="group bg-white rounded-2xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow"
               >
                 <div className="flex items-center justify-between gap-4">
-                  <div className="min-w-0">
+                  <Link href={`/festivals/${id}/artists/${artist.id}`} className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-gray-900 group-hover:text-violet-700 transition-colors">
                         {artist.name}
@@ -89,7 +89,7 @@ export default async function ArtistsPage({
                       {artist.contactEmail && <span className="hidden sm:inline">✉️ {artist.contactEmail}</span>}
                       {scheduledCount > 0 && <span className="text-violet-500 font-medium">{scheduledCount} הופעות</span>}
                     </div>
-                  </div>
+                  </Link>
 
                   <div className="shrink-0 flex items-center gap-2 text-xs text-gray-400">
                     <div className="hidden sm:flex gap-1.5">
@@ -100,10 +100,22 @@ export default async function ArtistsPage({
                     {access.isAdmin && (
                       <ArtistLinkButton artistToken={artist.artistToken} />
                     )}
+                    {access.isAdmin && (
+                      <DeleteButton
+                        action={async () => {
+                          "use server";
+                          await deleteArtist(artist.id, id);
+                        }}
+                        confirm={`למחוק את האמן "${artist.name}"? כל הקבצים, אנשי הקשר והתשלומים המשויכים יימחקו גם הם.`}
+                        className="text-xs px-2 py-1 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors whitespace-nowrap"
+                      >
+                        🗑 מחק
+                      </DeleteButton>
+                    )}
                     <span className="text-gray-300 group-hover:text-violet-400 transition-colors text-base">→</span>
                   </div>
                 </div>
-              </Link>
+              </div>
             );
           })}
         </div>
