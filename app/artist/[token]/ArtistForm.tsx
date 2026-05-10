@@ -16,6 +16,14 @@ interface Vehicle {
   arrivalTime: string;
 }
 
+interface ArtistFileDraft {
+  id?: string;
+  name: string;
+  url?: string;
+  fileType: string;
+  isNew?: boolean;
+}
+
 interface Props {
   token: string;
   initialData: {
@@ -23,6 +31,7 @@ interface Props {
     contactEmail: string;
     technicalRiderNotes: string;
     hospitalityRider: string;
+    files: ArtistFileDraft[];
   };
   submitAction: (
     token: string,
@@ -33,6 +42,7 @@ interface Props {
       technicalRiderNotes: string;
       hospitalityRider: string;
       notes: string;
+      files: { name: string; url: string; fileType: string }[];
       contacts: Contact[];
       vehicles: Vehicle[];
     }
@@ -56,6 +66,8 @@ export default function ArtistForm({ token, initialData, submitAction }: Props) 
   const [notes, setNotes] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [files, setFiles] = useState<ArtistFileDraft[]>(initialData.files);
+  const [uploadingFile, setUploadingFile] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +78,40 @@ export default function ArtistForm({ token, initialData, submitAction }: Props) 
 
   function updateVehicle(i: number, field: keyof Vehicle, value: string) {
     setVehicles((prev) => prev.map((v, idx) => (idx === i ? { ...v, [field]: value } : v)));
+  }
+
+  function updateFile(i: number, field: "fileType", value: string) {
+    setFiles((prev) => prev.map((file, idx) => (idx === i ? { ...file, [field]: value } : file)));
+  }
+
+  async function handleFileUpload(file: File) {
+    setUploadingFile(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/artist-upload?token=${encodeURIComponent(token)}`, {
+        method: "POST",
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) {
+        throw new Error(data.error ?? "שגיאה בהעלאת הקובץ");
+      }
+      setFiles((prev) => [
+        {
+          name: file.name,
+          url: data.url,
+          fileType: file.type === "application/pdf" ? "rider" : "other",
+          isNew: true,
+        },
+        ...prev,
+      ]);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "שגיאה בהעלאת הקובץ");
+    } finally {
+      setUploadingFile(false);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -80,6 +126,13 @@ export default function ArtistForm({ token, initialData, submitAction }: Props) 
         technicalRiderNotes,
         hospitalityRider,
         notes,
+        files: files
+          .filter((file) => file.isNew && file.url)
+          .map((file) => ({
+            name: file.name,
+            url: file.url as string,
+            fileType: file.fileType || "other",
+          })),
         contacts: contacts.filter((c) => c.name.trim()),
         vehicles: vehicles.filter((v) => v.plateNumber.trim()),
       });
@@ -246,6 +299,74 @@ export default function ArtistForm({ token, initialData, submitAction }: Props) 
               className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition resize-none" />
           </div>
         </div>
+      </section>
+
+      <section>
+        <div className="flex items-center justify-between border-b pb-1 mb-3">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700">מסמכים</h3>
+            <p className="text-xs text-gray-400 mt-1">אפשר לצרף ריידר, גרפיקות, חוזה או קבצים נוספים</p>
+          </div>
+          <label className="text-xs text-violet-600 hover:text-violet-800 font-medium cursor-pointer">
+            <input
+              type="file"
+              className="sr-only"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+              disabled={uploadingFile}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  handleFileUpload(file).finally(() => {
+                    e.target.value = "";
+                  });
+                }
+              }}
+            />
+            {uploadingFile ? "מעלה..." : "+ הוסף קובץ"}
+          </label>
+        </div>
+
+        {files.length === 0 ? (
+          <p className="text-xs text-gray-400">עדיין לא צורפו מסמכים</p>
+        ) : (
+          <div className="space-y-2">
+            {files.map((file, i) => (
+              <div key={`${file.id ?? "new"}-${file.name}-${i}`} className="bg-gray-50 rounded-xl p-3 flex items-start gap-3">
+                <span className="text-lg shrink-0">📎</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <select
+                      value={file.fileType}
+                      onChange={(e) => updateFile(i, "fileType", e.target.value)}
+                      className="border border-gray-200 rounded-lg px-2 py-1 text-xs bg-white"
+                    >
+                      <option value="rider">ריידר</option>
+                      <option value="graphics">גרפיקות</option>
+                      <option value="contract">חוזה</option>
+                      <option value="other">אחר</option>
+                    </select>
+                    {!file.isNew && (
+                      <span className="text-[11px] text-gray-400">כבר נשמר במערכת</span>
+                    )}
+                    {file.isNew && (
+                      <span className="text-[11px] text-emerald-600">יישמר עם שליחת הטופס</span>
+                    )}
+                  </div>
+                </div>
+                {file.isNew && (
+                  <button
+                    type="button"
+                    onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                    className="text-gray-300 hover:text-red-400 text-sm shrink-0"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {error && <p className="text-red-500 text-sm">{error}</p>}

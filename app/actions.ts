@@ -1603,6 +1603,7 @@ export async function submitArtistForm(
     technicalRiderNotes: string;
     hospitalityRider: string;
     notes: string;
+    files: { name: string; url: string; fileType: string }[];
     contacts: { name: string; role: string; phone: string; email: string; idNumber: string }[];
     vehicles: { plateNumber: string; vehicleType: string; arrivalTime: string }[];
   }
@@ -1645,7 +1646,29 @@ export async function submitArtistForm(
     });
   }
 
+  const normalizedFiles = data.files
+    .map((file) => ({
+      name: file.name.trim(),
+      url: file.url.trim(),
+      fileType: file.fileType.trim() || "other",
+    }))
+    .filter((file) => file.name && file.url);
+
+  if (normalizedFiles.length > 0) {
+    await prisma.artistFile.createMany({
+      data: normalizedFiles.map((file) => ({
+        artistId: artist.id,
+        name: file.name,
+        url: file.url,
+        fileType: file.fileType,
+        isExternal: false,
+      })),
+    });
+  }
+
   revalidatePath(`/festivals/${artist.festivalId}/artists`);
+  revalidatePath(`/festivals/${artist.festivalId}/artists/${artist.id}`);
+  revalidatePath(`/festivals/${artist.festivalId}/documents`);
   revalidatePath(`/festivals/${artist.festivalId}/vehicles`);
 }
 
