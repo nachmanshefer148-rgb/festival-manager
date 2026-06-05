@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 import {
+  approveBoothApplication,
   createBooth,
   createBoothContact,
   createBoothFile,
@@ -12,6 +13,7 @@ import {
   deleteBoothVehicle,
   generateBoothsToken,
   getBoothDetails,
+  rejectBoothApplication,
   toggleBoothPayment,
   updateBooth,
 } from "@/app/actions";
@@ -27,7 +29,7 @@ export default async function BoothsPage({
   const { id } = await params;
   const access = await requireFestivalAccessPage(id);
 
-  const [booths, festival] = await Promise.all([
+  const [booths, festival, applications] = await Promise.all([
     prisma.booth.findMany({
       where: { festivalId: id },
       select: {
@@ -48,17 +50,20 @@ export default async function BoothsPage({
       where: { id },
       select: { boothsToken: true },
     }),
+    prisma.boothApplication.findMany({
+      where: { festivalId: id },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
 
-  const serialized = booths.map((booth) => ({
-    ...booth,
-    createdAt: booth.createdAt.toISOString(),
-  }));
+  const serialized = booths.map((b) => ({ ...b, createdAt: b.createdAt.toISOString() }));
+  const serializedApps = applications.map((a) => ({ ...a, createdAt: a.createdAt.toISOString() }));
 
   return (
     <BoothClient
       festivalId={id}
       booths={serialized}
+      applications={serializedApps}
       boothsToken={festival?.boothsToken ?? null}
       isAdmin={access.isAdmin}
       canAccessFiles={access.canViewDocuments}
@@ -68,6 +73,8 @@ export default async function BoothsPage({
       deleteBooth={deleteBooth}
       getBoothDetails={getBoothDetails}
       generateBoothsToken={generateBoothsToken}
+      approveBoothApplication={approveBoothApplication}
+      rejectBoothApplication={rejectBoothApplication}
       createBoothContact={createBoothContact}
       deleteBoothContact={deleteBoothContact}
       createBoothVehicle={createBoothVehicle}

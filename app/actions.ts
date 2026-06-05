@@ -2014,27 +2014,62 @@ export async function submitBoothRegistration(
   });
   if (!festival) throw new Error("לינק לא תקין");
 
-  const booth = await prisma.booth.create({
+  await prisma.boothApplication.create({
     data: {
       festivalId: festival.id,
-      name: boothName.trim(),
+      boothName: boothName.trim(),
       category: category.trim(),
+      contactName: contactName.trim() || null,
+      contactPhone: contactPhone.trim() || null,
+      contactEmail: contactEmail.trim() || null,
       notes: notes.trim() || null,
     },
   });
 
-  if (contactName.trim()) {
-    await prisma.boothContact.create({
+  revalidatePath(`/festivals/${festival.id}/booths`);
+}
+
+export async function approveBoothApplication(id: string, festivalId: string) {
+  await requireOwnedFestival(festivalId);
+  const app = await prisma.boothApplication.findFirst({
+    where: { id, festivalId },
+  });
+  if (!app) throw new Error("בקשה לא נמצאה");
+
+  await prisma.$transaction(async (tx) => {
+    const booth = await tx.booth.create({
       data: {
-        boothId: booth.id,
-        name: contactName.trim(),
-        phone: contactPhone.trim() || null,
-        email: contactEmail.trim() || null,
+        festivalId,
+        name: app.boothName,
+        category: app.category,
+        notes: app.notes || null,
       },
     });
-  }
+    if (app.contactName) {
+      await tx.boothContact.create({
+        data: {
+          boothId: booth.id,
+          name: app.contactName,
+          phone: app.contactPhone || null,
+          email: app.contactEmail || null,
+        },
+      });
+    }
+    await tx.boothApplication.delete({ where: { id } });
+  });
 
-  revalidatePath(`/festivals/${festival.id}/booths`);
+  revalidatePath(`/festivals/${festivalId}/booths`);
+}
+
+export async function rejectBoothApplication(id: string, festivalId: string) {
+  await requireOwnedFestival(festivalId);
+  const app = await prisma.boothApplication.findFirst({
+    where: { id, festivalId },
+    select: { id: true },
+  });
+  if (!app) throw new Error("בקשה לא נמצאה");
+  await prisma.boothApplication.delete({ where: { id } });
+  revalidatePath(`/festivals/${festivalId}/booths`);
 }
 
 // ─── Booth Self-Service Form ──────────────────────────────────────────────────

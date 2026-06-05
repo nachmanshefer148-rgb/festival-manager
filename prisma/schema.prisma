@@ -67,6 +67,7 @@ model Festival {
   members           FestivalMember[]
   vehicles          Vehicle[]
   booths            Booth[]
+  boothApplications BoothApplication[]
 }
 
 model Stage {
@@ -435,6 +436,19 @@ model BoothFile {
   createdAt  DateTime @default(now())
   boothId    String
   booth      Booth    @relation(fields: [boothId], references: [id], onDelete: Cascade)
+}
+
+model BoothApplication {
+  id           String   @id @default(cuid())
+  boothName    String
+  category     String
+  contactName  String?
+  contactPhone String?
+  contactEmail String?
+  notes        String?
+  festivalId   String
+  festival     Festival @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
 }
 
 enum TimeSlotStatus {

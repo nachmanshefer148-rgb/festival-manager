@@ -71,9 +71,21 @@ interface BoothDetails {
   files: BoothFile[];
 }
 
+interface BoothApplication {
+  id: string;
+  boothName: string;
+  category: string;
+  contactName: string | null;
+  contactPhone: string | null;
+  contactEmail: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
 interface Props {
   festivalId: string;
   booths: Booth[];
+  applications: BoothApplication[];
   boothsToken: string | null;
   isAdmin: boolean;
   canAccessFiles?: boolean;
@@ -83,6 +95,8 @@ interface Props {
   deleteBooth: (id: string, festivalId: string) => Promise<void>;
   getBoothDetails: (boothId: string, festivalId: string) => Promise<BoothDetails | null>;
   generateBoothsToken: (festivalId: string) => Promise<string>;
+  approveBoothApplication: (id: string, festivalId: string) => Promise<void>;
+  rejectBoothApplication: (id: string, festivalId: string) => Promise<void>;
   createBoothContact: (boothId: string, festivalId: string, fd: FormData) => Promise<void>;
   deleteBoothContact: (id: string, festivalId: string) => Promise<void>;
   createBoothVehicle: (boothId: string, festivalId: string, fd: FormData) => Promise<void>;
@@ -99,6 +113,7 @@ type DetailTab = "contacts" | "vehicles" | "payments" | "files";
 export default function BoothClient({
   festivalId,
   booths,
+  applications,
   boothsToken: initialBoothsToken,
   isAdmin,
   canAccessFiles = true,
@@ -108,6 +123,8 @@ export default function BoothClient({
   deleteBooth,
   getBoothDetails,
   generateBoothsToken,
+  approveBoothApplication,
+  rejectBoothApplication,
   createBoothContact,
   deleteBoothContact,
   createBoothVehicle,
@@ -207,7 +224,14 @@ export default function BoothClient({
     <div className="space-y-6" dir="rtl">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">דוכנים</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-gray-900">דוכנים</h1>
+          {isAdmin && applications.length > 0 && (
+            <span className="bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+              {applications.length}
+            </span>
+          )}
+        </div>
         {isAdmin && (
           <div className="flex gap-2">
             <button
@@ -225,6 +249,53 @@ export default function BoothClient({
           </div>
         )}
       </div>
+
+      {/* Pending applications */}
+      {isAdmin && applications.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3">
+          <h2 className="font-semibold text-amber-800 text-sm">בקשות רישום ממתינות ({applications.length})</h2>
+          {applications.map((app) => {
+            const cat = CATEGORIES[app.category];
+            return (
+              <div key={app.id} className="bg-white rounded-xl border border-amber-100 px-4 py-3 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-medium text-gray-900 text-sm">{app.boothName}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    <span className={`inline-block px-1.5 py-0.5 rounded-full text-xs font-medium ml-2 ${cat?.color ?? "bg-gray-100 text-gray-600"}`}>
+                      {cat?.label ?? app.category}
+                    </span>
+                    {app.contactName && <span>{app.contactName}</span>}
+                    {app.contactPhone && <span className="mr-2" dir="ltr"> · {app.contactPhone}</span>}
+                  </div>
+                  {app.notes && <div className="text-xs text-gray-400 mt-0.5 truncate">{app.notes}</div>}
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={async () => {
+                      await approveBoothApplication(app.id, festivalId);
+                      toast("הדוכן אושר ונוסף לרשימה");
+                    }}
+                    className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-green-700 transition-colors"
+                  >
+                    אשר
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const ok = await confirm({ message: `לדחות את בקשת "${app.boothName}"?`, danger: true, confirmLabel: "דחה" });
+                      if (!ok) return;
+                      await rejectBoothApplication(app.id, festivalId);
+                      toast("הבקשה נדחתה");
+                    }}
+                    className="border border-red-200 text-red-600 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-50 transition-colors"
+                  >
+                    דחה
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Category filter */}
       <div className="flex gap-2 flex-wrap">
@@ -291,8 +362,23 @@ export default function BoothClient({
                       <button
                         onClick={() => setEditBooth(booth)}
                         className="text-xs px-2 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
+                        title="עריכה"
                       >
                         ✏️
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <button
+                        onClick={async () => {
+                          const ok = await confirm({ message: `למחוק את ${booth.name}?`, danger: true, confirmLabel: "מחק" });
+                          if (!ok) return;
+                          await deleteBooth(booth.id, festivalId);
+                          toast("הדוכן נמחק");
+                        }}
+                        className="text-xs px-2 py-1 rounded-lg bg-gray-100 hover:bg-red-100 text-gray-600 hover:text-red-600 transition-colors"
+                        title="מחיקה"
+                      >
+                        🗑️
                       </button>
                     )}
                   </div>
