@@ -42,9 +42,11 @@ model Festival {
   location    String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  inviteToken String?  @unique
-  ownerId     String?
-  viewerToken String?  @unique
+  inviteToken   String?  @unique
+  ownerId       String?
+  viewerToken   String?  @unique
+  artistsToken  String?  @unique
+  vendorsToken  String?  @unique
   viewerAccessEnabled Boolean @default(false)
   viewerShowBudget Boolean @default(false)
   viewerShowDocuments Boolean @default(false)
@@ -63,6 +65,7 @@ model Festival {
   communityContacts FestivalCommunityContact[]
   members           FestivalMember[]
   vehicles          Vehicle[]
+  booths            Booth[]
 }
 
 model Stage {
@@ -374,6 +377,63 @@ model Vehicle {
   festivalId String
   festival   Festival @relation(fields: [festivalId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
+}
+
+model Booth {
+  id         String   @id @default(cuid())
+  name       String
+  category   String
+  notes      String?
+  boothToken String   @unique @default(uuid())
+  createdAt  DateTime @default(now())
+  festivalId String
+  festival   Festival @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+
+  contacts  BoothContact[]
+  vehicles  BoothVehicle[]
+  payments  BoothPayment[]
+  files     BoothFile[]
+}
+
+model BoothContact {
+  id      String  @id @default(cuid())
+  name    String
+  role    String?
+  phone   String?
+  email   String?
+  boothId String
+  booth   Booth   @relation(fields: [boothId], references: [id], onDelete: Cascade)
+}
+
+model BoothVehicle {
+  id          String  @id @default(cuid())
+  plateNumber String
+  vehicleType String?
+  arrivalTime String?
+  boothId     String
+  booth       Booth   @relation(fields: [boothId], references: [id], onDelete: Cascade)
+}
+
+model BoothPayment {
+  id           String    @id @default(cuid())
+  description  String
+  amount       Float
+  dueDate      DateTime?
+  isPaid       Boolean   @default(false)
+  budgetItemId String?   @unique
+  boothId      String
+  booth        Booth     @relation(fields: [boothId], references: [id], onDelete: Cascade)
+}
+
+model BoothFile {
+  id         String   @id @default(cuid())
+  name       String
+  url        String
+  isExternal Boolean  @default(false)
+  fileType   String?
+  createdAt  DateTime @default(now())
+  boothId    String
+  booth      Booth    @relation(fields: [boothId], references: [id], onDelete: Cascade)
 }
 
 enum TimeSlotStatus {
