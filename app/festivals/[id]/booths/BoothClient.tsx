@@ -74,6 +74,7 @@ interface BoothDetails {
 interface Props {
   festivalId: string;
   booths: Booth[];
+  boothsToken: string | null;
   isAdmin: boolean;
   canAccessFiles?: boolean;
   showFinancials?: boolean;
@@ -81,6 +82,7 @@ interface Props {
   updateBooth: (id: string, fd: FormData) => Promise<void>;
   deleteBooth: (id: string, festivalId: string) => Promise<void>;
   getBoothDetails: (boothId: string, festivalId: string) => Promise<BoothDetails | null>;
+  generateBoothsToken: (festivalId: string) => Promise<string>;
   createBoothContact: (boothId: string, festivalId: string, fd: FormData) => Promise<void>;
   deleteBoothContact: (id: string, festivalId: string) => Promise<void>;
   createBoothVehicle: (boothId: string, festivalId: string, fd: FormData) => Promise<void>;
@@ -97,6 +99,7 @@ type DetailTab = "contacts" | "vehicles" | "payments" | "files";
 export default function BoothClient({
   festivalId,
   booths,
+  boothsToken: initialBoothsToken,
   isAdmin,
   canAccessFiles = true,
   showFinancials = true,
@@ -104,6 +107,7 @@ export default function BoothClient({
   updateBooth,
   deleteBooth,
   getBoothDetails,
+  generateBoothsToken,
   createBoothContact,
   deleteBoothContact,
   createBoothVehicle,
@@ -124,6 +128,8 @@ export default function BoothClient({
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailTab, setDetailTab] = useState<DetailTab>("contacts");
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [boothsToken, setBoothsToken] = useState<string | null>(initialBoothsToken);
+  const [copiedGeneral, setCopiedGeneral] = useState(false);
 
   const addFormRef = useRef<HTMLFormElement>(null);
 
@@ -176,6 +182,25 @@ export default function BoothClient({
     document.body.removeChild(ta);
   }
 
+  async function handleCopyGeneralLink() {
+    let token = boothsToken;
+    if (!token) {
+      token = await generateBoothsToken(festivalId);
+      setBoothsToken(token);
+    }
+    const url = `${window.location.origin}/booth-register/${token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = url; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select(); document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    setCopiedGeneral(true);
+    setTimeout(() => setCopiedGeneral(false), 2000);
+  }
+
   const detailBoothSummary = detailBoothId ? booths.find((b) => b.id === detailBoothId) : null;
 
   return (
@@ -184,12 +209,20 @@ export default function BoothClient({
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">דוכנים</h1>
         {isAdmin && (
-          <button
-            onClick={() => setShowAddBooth(true)}
-            className="bg-violet-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-violet-700 transition-colors"
-          >
-            + הוסף דוכן
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleCopyGeneralLink}
+              className="border border-gray-200 text-gray-600 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+            >
+              {copiedGeneral ? "✓ הועתק!" : "🔗 לינק רישום"}
+            </button>
+            <button
+              onClick={() => setShowAddBooth(true)}
+              className="bg-violet-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-violet-700 transition-colors"
+            >
+              + הוסף דוכן
+            </button>
+          </div>
         )}
       </div>
 

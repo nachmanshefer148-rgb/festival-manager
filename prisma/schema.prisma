@@ -47,6 +47,7 @@ model Festival {
   viewerToken   String?  @unique
   artistsToken  String?  @unique
   vendorsToken  String?  @unique
+  boothsToken   String?  @unique
   viewerAccessEnabled Boolean @default(false)
   viewerShowBudget Boolean @default(false)
   viewerShowDocuments Boolean @default(false)

@@ -1986,6 +1986,57 @@ export async function deleteBoothFile(id: string, festivalId: string) {
   revalidatePath(`/festivals/${festivalId}/documents`);
 }
 
+// ─── Booths General Registration Link ────────────────────────────────────────
+
+export async function generateBoothsToken(festivalId: string) {
+  await requireOwnedFestival(festivalId);
+  const token = randomUUID();
+  await prisma.festival.update({
+    where: { id: festivalId },
+    data: { boothsToken: token },
+  });
+  revalidatePath(`/festivals/${festivalId}/booths`);
+  return token;
+}
+
+export async function submitBoothRegistration(
+  token: string,
+  boothName: string,
+  category: string,
+  contactName: string,
+  contactPhone: string,
+  contactEmail: string,
+  notes: string
+) {
+  const festival = await prisma.festival.findUnique({
+    where: { boothsToken: token },
+    select: { id: true },
+  });
+  if (!festival) throw new Error("לינק לא תקין");
+
+  const booth = await prisma.booth.create({
+    data: {
+      festivalId: festival.id,
+      name: boothName.trim(),
+      category: category.trim(),
+      notes: notes.trim() || null,
+    },
+  });
+
+  if (contactName.trim()) {
+    await prisma.boothContact.create({
+      data: {
+        boothId: booth.id,
+        name: contactName.trim(),
+        phone: contactPhone.trim() || null,
+        email: contactEmail.trim() || null,
+      },
+    });
+  }
+
+  revalidatePath(`/festivals/${festival.id}/booths`);
+}
+
 // ─── Booth Self-Service Form ──────────────────────────────────────────────────
 
 export async function submitBoothForm(
