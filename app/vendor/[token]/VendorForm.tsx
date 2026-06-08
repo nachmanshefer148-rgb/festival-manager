@@ -21,14 +21,16 @@ interface Props {
   token: string;
   initialContacts: { id: string; name: string; role: string | null; phone: string | null; email: string | null }[];
   initialVehicles: { id: string; plateNumber: string; vehicleType: string | null; arrivalTime: string | null }[];
+  initialNotes?: string;
   submitAction: (
     token: string,
     contacts: { name: string; role: string; phone: string; email: string }[],
-    vehicles: { plateNumber: string; vehicleType: string; arrivalTime: string }[]
+    vehicles: { plateNumber: string; vehicleType: string; arrivalTime: string }[],
+    notes?: string
   ) => Promise<void>;
 }
 
-export default function VendorForm({ token, initialContacts, initialVehicles, submitAction }: Props) {
+export default function VendorForm({ token, initialContacts, initialVehicles, initialNotes = "", submitAction }: Props) {
   const [contacts, setContacts] = useState<Contact[]>(
     initialContacts.map((c) => ({
       id: c.id,
@@ -48,6 +50,7 @@ export default function VendorForm({ token, initialContacts, initialVehicles, su
     }))
   );
 
+  const [notes, setNotes] = useState(initialNotes);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,7 +106,8 @@ export default function VendorForm({ token, initialContacts, initialVehicles, su
       await submitAction(
         token,
         contacts.map((c) => ({ name: c.name.trim(), role: c.role.trim(), phone: c.phone.trim(), email: c.email.trim() })),
-        vehicles.map((v) => ({ plateNumber: v.plateNumber.trim(), vehicleType: v.vehicleType.trim(), arrivalTime: v.arrivalTime.trim() }))
+        vehicles.map((v) => ({ plateNumber: v.plateNumber.trim(), vehicleType: v.vehicleType.trim(), arrivalTime: v.arrivalTime.trim() })),
+        notes
       );
       setSaved(true);
     } catch (e) {
@@ -234,6 +238,18 @@ export default function VendorForm({ token, initialContacts, initialVehicles, su
             </div>
           ))}
         </div>
+      </section>
+
+      {/* Notes */}
+      <section>
+        <h2 className="font-semibold text-gray-800 text-base mb-3">📝 הערות ופרטים טכניים</h2>
+        <textarea
+          value={notes}
+          onChange={(e) => { setNotes(e.target.value); setSaved(false); }}
+          placeholder="בקשות מיוחדות, דרישות חשמל, ציוד נדרש, הערות לצוות..."
+          rows={4}
+          className={inputCls + " resize-none"}
+        />
       </section>
 
       {/* Error */}

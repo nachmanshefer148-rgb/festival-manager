@@ -13,6 +13,8 @@ import {
   getVendorDetails,
   toggleVendorPayment,
   updateVendor,
+  generateVendorsToken,
+  bulkCreateVendors,
 } from "@/app/actions";
 import { requireFestivalAccessPage } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
@@ -25,6 +27,11 @@ export default async function VendorsPage({
 }) {
   const { id } = await params;
   const access = await requireFestivalAccessPage(id);
+
+  const festival = await prisma.festival.findUnique({
+    where: { id },
+    select: { vendorsToken: true },
+  });
 
   const vendors = await prisma.vendor.findMany({
     where: { festivalId: id },
@@ -55,6 +62,7 @@ export default async function VendorsPage({
       isAdmin={access.isAdmin}
       canAccessFiles={access.canViewDocuments}
       showFinancials={access.canViewBudget}
+      vendorsToken={festival?.vendorsToken ?? null}
       createVendor={createVendor}
       updateVendor={updateVendor}
       deleteVendor={deleteVendor}
@@ -68,6 +76,8 @@ export default async function VendorsPage({
       deleteVendorPayment={deleteVendorPayment}
       createVendorFile={createVendorFile}
       deleteVendorFile={deleteVendorFile}
+      generateVendorsToken={generateVendorsToken}
+      bulkCreateVendors={bulkCreateVendors}
     />
   );
 }

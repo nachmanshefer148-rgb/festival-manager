@@ -51,6 +51,7 @@ export default async function VendorFormPage({
             token={token}
             initialContacts={vendor.contacts}
             initialVehicles={vendor.vehicles}
+            initialNotes={vendor.notes ?? ""}
             submitAction={submitVendorForm}
           />
         </div>

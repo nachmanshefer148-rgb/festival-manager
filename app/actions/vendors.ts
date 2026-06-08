@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { randomUUID } from "crypto";
 import {
   requireAdmin,
   requireOwnedFestival,
@@ -190,10 +191,83 @@ export async function deleteVendorFile(id: string, festivalId: string) {
   revalidatePath(`/festivals/${festivalId}/documents`);
 }
 
+export async function generateVendorsToken(festivalId: string) {
+  await requireOwnedFestival(festivalId);
+  const token = randomUUID();
+  await prisma.festival.update({ where: { id: festivalId }, data: { vendorsToken: token } });
+  revalidatePath(`/festivals/${festivalId}/vendors`);
+  return token;
+}
+
+export async function registerNewVendorByToken(
+  festivalToken: string,
+  name: string,
+  category: string,
+  notes: string
+) {
+  const festival = await prisma.festival.findUnique({
+    where: { vendorsToken: festivalToken },
+    select: { id: true },
+  });
+  if (!festival) throw new Error("לינק לא תקין");
+  const vendor = await prisma.vendor.create({
+    data: {
+      festivalId: festival.id,
+      name: name.trim(),
+      category: category.trim(),
+      notes: notes.trim() || null,
+    },
+  });
+  revalidatePath(`/festivals/${festival.id}/vendors`);
+  return vendor.vendorToken;
+}
+
+export interface BulkVendorItem {
+  name: string;
+  category: string;
+  notes?: string;
+  contactName?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+}
+
+export async function bulkCreateVendors(festivalId: string, items: BulkVendorItem[]) {
+  await requireAdmin();
+  await requireOwnedFestival(festivalId);
+  const limited = items.slice(0, 500);
+  await prisma.$transaction(async (tx) => {
+    for (const item of limited) {
+      const name = item.name?.trim();
+      if (!name) continue;
+      const category = item.category?.trim() || "production";
+      const vendor = await tx.vendor.create({
+        data: {
+          festivalId,
+          name,
+          category,
+          notes: item.notes?.trim() || null,
+        },
+      });
+      if (item.contactName?.trim()) {
+        await tx.vendorContact.create({
+          data: {
+            vendorId: vendor.id,
+            name: item.contactName.trim(),
+            phone: item.contactPhone?.trim() || null,
+            email: item.contactEmail?.trim() || null,
+          },
+        });
+      }
+    }
+  });
+  revalidatePath(`/festivals/${festivalId}/vendors`);
+}
+
 export async function submitVendorForm(
   token: string,
   contacts: { name: string; role: string; phone: string; email: string }[],
-  vehicles: { plateNumber: string; vehicleType: string; arrivalTime: string }[]
+  vehicles: { plateNumber: string; vehicleType: string; arrivalTime: string }[],
+  notes?: string
 ) {
   const vendor = await prisma.vendor.findUnique({ where: { vendorToken: token } });
   if (!vendor) throw new Error("לינק לא תקין");
@@ -226,6 +300,7 @@ export async function submitVendorForm(
     }));
 
   await prisma.$transaction(async (tx) => {
+    await tx.vendor.update({ where: { id: vendor.id }, data: { notes: notes?.trim() || null } });
     await tx.vendorContact.deleteMany({ where: { vendorId: vendor.id } });
     await tx.vendorVehicle.deleteMany({ where: { vendorId: vendor.id } });
     if (normalizedContacts.length > 0) {
