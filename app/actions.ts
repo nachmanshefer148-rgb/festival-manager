@@ -1,5 +1,3 @@
-"use server";
-
 export * from "./actions/auth";
 export * from "./actions/festivals";
 export * from "./actions/artists";
