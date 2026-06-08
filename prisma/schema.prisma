@@ -85,6 +85,10 @@ model Stage {
   festivalId        String
   festival          Festival    @relation(fields: [festivalId], references: [id], onDelete: Cascade)
 
+  powerSpec         String?
+  dimensions        String?
+  dressingRoomInfo  String?
+
   timeSlots TimeSlot[]
   files     StageFile[]
 }
@@ -142,6 +146,12 @@ model Artist {
   facebookUrl        String?
   websiteUrl         String?
   spotifyUrl         String?
+
+  // לוגיסטיקה
+  loadInTime            String?
+  loadOutTime           String?
+  accommodationNotes    String?
+  dietaryRequirements   String?
 
   // מפרט טכני — שדות מובנים
   stageSize              String?
@@ -242,6 +252,11 @@ model TeamMember {
   festivalId String
   festival   Festival       @relation(fields: [festivalId], references: [id], onDelete: Cascade)
   managedStages Stage[]
+
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  shiftStart            String?
+  shiftEnd              String?
 }
 
 model BudgetItem {
@@ -395,6 +410,11 @@ model Booth {
   vehicles  BoothVehicle[]
   payments  BoothPayment[]
   files     BoothFile[]
+
+  locationOnGrounds String?
+  dimensions        String?
+  powerRequired     Boolean @default(false)
+  operatingHours    String?
 }
 
 model BoothContact {

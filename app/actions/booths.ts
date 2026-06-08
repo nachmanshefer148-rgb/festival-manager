@@ -12,6 +12,7 @@ import {
   requireOwnedBoothFile,
 } from "@/lib/authorize";
 import { assertFestivalMatch, requireString, readString, parseAmount } from "@/lib/action-utils";
+import { sendBoothApplicationConfirmation, sendNewApplicationAlert } from "@/lib/email";
 
 export async function getBoothDetails(boothId: string, festivalId: string) {
   await requireOwnedBooth(boothId);
@@ -205,7 +206,10 @@ export async function submitBoothRegistration(
   contactEmail: string,
   notes: string
 ) {
-  const festival = await prisma.festival.findUnique({ where: { boothsToken: token }, select: { id: true } });
+  const festival = await prisma.festival.findUnique({
+    where: { boothsToken: token },
+    select: { id: true, name: true, owner: { select: { email: true } } },
+  });
   if (!festival) throw new Error("לינק לא תקין");
   await prisma.boothApplication.create({
     data: {
@@ -219,6 +223,9 @@ export async function submitBoothRegistration(
     },
   });
   revalidatePath(`/festivals/${festival.id}/booths`);
+  const email = contactEmail.trim();
+  if (email) void sendBoothApplicationConfirmation(email, boothName.trim(), festival.name);
+  if (festival.owner?.email) void sendNewApplicationAlert(festival.owner.email, boothName.trim(), festival.name, "booth");
 }
 
 export async function approveBoothApplication(id: string, festivalId: string) {

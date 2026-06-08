@@ -10,6 +10,7 @@ import { formatDate } from "@/lib/utils";
 import NavDrawer from "./NavDrawer";
 import { NavLink } from "./NavLink";
 import FestivalViewerShareButton from "./FestivalViewerShareButton";
+import { DarkModeToggle } from "@/app/components/DarkModeToggle";
 
 export default async function FestivalLayout({
   children,
@@ -34,6 +35,7 @@ export default async function FestivalLayout({
     { href: "/vehicles", label: "רכבים", icon: "🚗" },
     ...(canViewDocuments ? [{ href: "/documents", label: "מסמכים", icon: "📁" }] : []),
     ...(canViewBudget ? [{ href: "/budget", label: "תקציב", icon: "💰" }] : []),
+    ...(isAdmin ? [{ href: "/analytics", label: "סטטיסטיקות", icon: "📊" }] : []),
   ];
 
   return (
@@ -67,22 +69,23 @@ export default async function FestivalLayout({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           <span className="text-xs font-medium px-2 py-1 rounded-lg hidden sm:block bg-violet-900 text-violet-200">
             {isAdmin ? user?.name : "צפייה מוגבלת"}
           </span>
+          <DarkModeToggle />
           <form action={logout}>
-            <button type="submit" className="text-violet-200 hover:text-white text-xs transition-colors">
+            <button type="submit" className="text-violet-200 hover:text-white text-xs transition-colors px-2 py-1 rounded hover:bg-violet-600">
               {isAdmin ? "יציאה" : "סיום צפייה"}
             </button>
           </form>
           {isAdmin && (
             <>
-              <Link href={`/festivals/${id}/settings`} className="text-violet-200 hover:text-white text-xs transition-colors" aria-label="הגדרות פסטיבל">
-                ⚙️
+              <Link href={`/festivals/${id}/settings`} className="p-1.5 rounded-lg text-violet-200 hover:text-white hover:bg-violet-600 transition-colors" aria-label="הגדרות פסטיבל" title="הגדרות פסטיבל">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
               </Link>
-              <Link href="/settings" className="text-violet-200 hover:text-white text-xs transition-colors hidden sm:block" aria-label="הגדרות חשבון">
-                👤
+              <Link href="/settings" className="p-1.5 rounded-lg text-violet-200 hover:text-white hover:bg-violet-600 transition-colors hidden sm:block" aria-label="הגדרות חשבון" title="הגדרות חשבון">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               </Link>
             </>
           )}
