@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import * as XLSX from "xlsx";
 import { FileSpreadsheet, X } from "lucide-react";
 import EntityClient, { EntityConfig, EntityActions, EntitySummary } from "@/app/components/EntityClient";
-import type { BulkVendorItem } from "@/app/actions/vendors";
+import type { BulkVendorItem } from "@/lib/vendor-types";
 
 const VENDOR_CONFIG: EntityConfig = {
   singularLabel: "ספק",

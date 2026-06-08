@@ -13,6 +13,7 @@ import {
   requireOwnedVendorFile,
 } from "@/lib/authorize";
 import { assertFestivalMatch, requireString, readString, parseAmount, optionalString, optionalEmail } from "@/lib/action-utils";
+import type { BulkVendorItem } from "@/lib/vendor-types";
 
 export async function getVendorDetails(vendorId: string, festivalId: string) {
   await requireOwnedFestival(festivalId);
@@ -220,15 +221,6 @@ export async function registerNewVendorByToken(
   });
   revalidatePath(`/festivals/${festival.id}/vendors`);
   return vendor.vendorToken;
-}
-
-export interface BulkVendorItem {
-  name: string;
-  category: string;
-  notes?: string;
-  contactName?: string;
-  contactPhone?: string;
-  contactEmail?: string;
 }
 
 export async function bulkCreateVendors(festivalId: string, items: BulkVendorItem[]) {
