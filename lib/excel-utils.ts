@@ -36,7 +36,10 @@ export function buildWorkbook(headers: string[], rows: object[]): Uint8Array {
 }
 
 export function downloadWorkbook(filename: string, data: Uint8Array) {
-  const blob = new Blob([data.buffer as ArrayBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const blob = new Blob(
+    [data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer],
+    { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }
+  );
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
