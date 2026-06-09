@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useToast } from "@/app/components/Toast";
+import { X } from "lucide-react";
 
 const inputCls = "w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition";
 
@@ -86,7 +87,7 @@ export default function AddArtistModal({ festivalId, createArtist, createArtistC
       ) : (
         <button
           onClick={() => setOpen(true)}
-          className="text-sm text-violet-600 hover:text-violet-800 font-medium flex items-center gap-1 transition-colors"
+          className="flex items-center gap-1.5 bg-violet-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-violet-700 transition-colors"
         >
           + הוסף אמן
         </button>
@@ -98,7 +99,7 @@ export default function AddArtistModal({ festivalId, createArtist, createArtistC
           <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-[95vw] sm:max-w-lg p-4 sm:p-6 z-10 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-semibold text-gray-900">הוסף אמן</h2>
-              <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+              <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"><X size={18} /></button>
             </div>
 
             <form ref={formRef} action={handleSubmit} className="space-y-5">
@@ -176,9 +177,9 @@ export default function AddArtistModal({ festivalId, createArtist, createArtistC
                         <button
                           type="button"
                           onClick={() => setContacts((p) => p.filter((_, idx) => idx !== i))}
-                          className="text-gray-300 hover:text-red-500 text-xs transition-colors"
+                          className="text-gray-300 hover:text-red-500 transition-colors p-0.5 rounded"
                         >
-                          ✕
+                          <X size={12} />
                         </button>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
@@ -229,9 +230,9 @@ export default function AddArtistModal({ festivalId, createArtist, createArtistC
                         <button
                           type="button"
                           onClick={() => setVehicles((p) => p.filter((_, idx) => idx !== i))}
-                          className="text-gray-300 hover:text-red-500 text-xs transition-colors"
+                          className="text-gray-300 hover:text-red-500 transition-colors p-0.5 rounded"
                         >
-                          ✕
+                          <X size={12} />
                         </button>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">

@@ -2,8 +2,9 @@
 
 import { useState, useRef } from "react";
 import * as XLSX from "xlsx";
-import { FileSpreadsheet, X } from "lucide-react";
+import { FileSpreadsheet, X, Download } from "lucide-react";
 import EntityClient, { EntityConfig, EntityActions, EntitySummary } from "@/app/components/EntityClient";
+import { buildWorkbook, downloadWorkbook, generateTemplate } from "@/lib/excel-utils";
 import type { BulkVendorItem } from "@/lib/vendor-types";
 
 const VENDOR_CONFIG: EntityConfig = {
@@ -142,6 +143,20 @@ export default function VendorClient({
     deleteFile: deleteVendorFile,
   };
 
+  function handleExport() {
+    const rows = items.map((item) => ({
+      "שם": item.name,
+      "קטגוריה": VENDOR_CONFIG.categories[item.category]?.label ?? item.category,
+      "הערות": item.notes ?? "",
+      "אנשי קשר": item._count.contacts,
+      "רכבים": item._count.vehicles,
+    }));
+    const data = buildWorkbook(["שם", "קטגוריה", "הערות", "אנשי קשר", "רכבים"], rows);
+    downloadWorkbook("vendors.xlsx", data);
+  }
+
+  const TEMPLATE_HEADERS = ["שם", "קטגוריה", "הערות", "איש קשר", "טלפון", "מייל", "רישוי רכב"];
+
   const importButton = rest.isAdmin ? (
     <>
       <button
@@ -151,6 +166,22 @@ export default function VendorClient({
       >
         <FileSpreadsheet size={14} />
         ייבא אקסל
+      </button>
+      <button
+        type="button"
+        onClick={handleExport}
+        className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+      >
+        <Download size={14} />
+        ייצא אקסל
+      </button>
+      <button
+        type="button"
+        onClick={() => generateTemplate("template-vendors.xlsx", TEMPLATE_HEADERS)}
+        className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+      >
+        <Download size={14} />
+        תבנית ריקה
       </button>
       <input
         ref={fileInputRef}

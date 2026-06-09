@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useToast } from "@/app/components/Toast";
 import { useConfirm } from "@/app/components/ConfirmDialog";
+import { X, Pencil } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -253,17 +254,11 @@ function StageCard({
         </div>
         {isAdmin && (
           <div className="flex items-center gap-1 shrink-0">
-            <button
-              onClick={() => onEdit(stage)}
-              className="text-violet-200 hover:text-white text-xs px-2 py-1 rounded-lg hover:bg-violet-500 transition"
-            >
-              ✏️
+            <button onClick={() => onEdit(stage)} className="p-1.5 text-violet-200 hover:text-white rounded-lg hover:bg-violet-500 transition" title="ערוך">
+              <Pencil size={13} />
             </button>
-            <button
-              onClick={() => onDelete(stage)}
-              className="text-violet-200 hover:text-white text-xs px-2 py-1 rounded-lg hover:bg-violet-500 transition"
-            >
-              ✕
+            <button onClick={() => onDelete(stage)} className="p-1.5 text-violet-200 hover:text-white rounded-lg hover:bg-violet-500 transition" title="מחק">
+              <X size={13} />
             </button>
           </div>
         )}
@@ -349,9 +344,9 @@ function StageCard({
                 {isAdmin && (
                   <button
                     onClick={() => onDeleteFile(f.id, stage)}
-                    className="text-gray-300 hover:text-red-400 transition text-sm"
+                    className="p-1 text-gray-300 hover:text-red-400 transition rounded hover:bg-red-50"
                   >
-                    ✕
+                    <X size={14} />
                   </button>
                 )}
               </div>

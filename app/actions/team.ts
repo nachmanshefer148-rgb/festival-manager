@@ -158,3 +158,71 @@ export async function deleteCommunityContact(id: string, festivalId: string) {
   revalidatePath(`/festivals/${festivalId}/team`);
 }
 
+
+export interface BulkTeamMemberItem {
+  firstName: string;
+  lastName: string;
+  roleName: string;
+  phone?: string;
+  email?: string;
+  carNumber?: string;
+  notes?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+}
+
+export async function bulkCreateTeamMembers(
+  festivalId: string,
+  items: BulkTeamMemberItem[]
+): Promise<{ created: number; skipped: number }> {
+  const { requireAdmin, requireOwnedFestival } = await import("@/lib/authorize");
+  await requireAdmin();
+  await requireOwnedFestival(festivalId);
+
+  let created = 0;
+  let skipped = 0;
+
+  const roleCache = new Map<string, string>();
+
+  for (const item of items) {
+    if (!item.firstName.trim() || !item.lastName.trim()) { skipped++; continue; }
+    try {
+      const roleNameNorm = (item.roleName ?? "").trim().toLowerCase() || "כללי";
+      let roleId = roleCache.get(roleNameNorm);
+      if (!roleId) {
+        const existing = await prisma.teamMemberRole.findFirst({
+          where: { festivalId, name: { equals: roleNameNorm, mode: "insensitive" } },
+        });
+        if (existing) {
+          roleId = existing.id;
+        } else {
+          const created = await prisma.teamMemberRole.create({
+            data: { festivalId, name: item.roleName.trim() || "כללי" },
+          });
+          roleId = created.id;
+        }
+        roleCache.set(roleNameNorm, roleId);
+      }
+      await prisma.teamMember.create({
+        data: {
+          festivalId,
+          roleId,
+          firstName: item.firstName.trim(),
+          lastName: item.lastName.trim(),
+          phone: item.phone?.trim() || null,
+          email: item.email?.trim() || null,
+          carNumber: item.carNumber?.trim() || null,
+          notes: item.notes?.trim() || null,
+          emergencyContactName: item.emergencyContactName?.trim() || null,
+          emergencyContactPhone: item.emergencyContactPhone?.trim() || null,
+        },
+      });
+      created++;
+    } catch {
+      skipped++;
+    }
+  }
+
+  revalidatePath(`/festivals/${festivalId}/team`);
+  return { created, skipped };
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { X } from "lucide-react";
 
 type Props = {
   festivalId: string;
@@ -91,7 +92,7 @@ export default function FestivalViewerShareButton({
                 className="rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
                 aria-label="סגור חלון"
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
 

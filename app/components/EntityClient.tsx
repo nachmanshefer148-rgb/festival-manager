@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useToast } from "@/app/components/Toast";
 import { useConfirm } from "@/app/components/ConfirmDialog";
-import { Search, X, Pencil, Trash2, Link2, Plus, Check } from "lucide-react";
+import { Search, X, Pencil, Trash2, Link2, Plus, Check, LayoutGrid, List } from "lucide-react";
 
 // ─── Normalized types ─────────────────────────────────────────────────────────
 
@@ -88,6 +88,17 @@ export default function EntityClient({
   const confirm = useConfirm();
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
+
+  useEffect(() => {
+    const stored = localStorage.getItem(`viewMode:${config.singularLabel}`);
+    if (stored === "list" || stored === "cards") setViewMode(stored);
+  }, [config.singularLabel]);
+
+  function toggleView(mode: "cards" | "list") {
+    setViewMode(mode);
+    localStorage.setItem(`viewMode:${config.singularLabel}`, mode);
+  }
   const [showAdd, setShowAdd] = useState(false);
   const [editItem, setEditItem] = useState<EntitySummary | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -212,8 +223,8 @@ export default function EntityClient({
         </div>
       )}
 
-      {/* Search + Category filter */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      {/* Search + Category filter + View toggle */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
         <div className="relative flex-1 max-w-xs">
           <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           <input
@@ -229,16 +240,24 @@ export default function EntityClient({
             </button>
           )}
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap flex-1">
           {[{ key: "all", label: "הכל" }, ...Object.entries(categories).map(([k, v]) => ({ key: k, label: v.label }))].map(({ key, label }) => (
             <button key={key} onClick={() => setCategoryFilter(key)} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${categoryFilter === key ? "bg-violet-600 text-white" : "bg-white text-gray-600 border border-gray-200 hover:border-violet-300"}`}>
               {label}
             </button>
           ))}
         </div>
+        <div className="flex border border-gray-200 rounded-xl overflow-hidden shrink-0">
+          <button onClick={() => toggleView("cards")} title="תצוגת כרטיסים" className={`p-2 transition-colors ${viewMode === "cards" ? "bg-violet-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}>
+            <LayoutGrid size={16} />
+          </button>
+          <button onClick={() => toggleView("list")} title="תצוגת רשימה" className={`p-2 transition-colors border-r border-gray-200 ${viewMode === "list" ? "bg-violet-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}>
+            <List size={16} />
+          </button>
+        </div>
       </div>
 
-      {/* Cards */}
+      {/* Cards / List */}
       {filtered.length === 0 ? (
         isAdmin ? (
           <button onClick={() => setShowAdd(true)} className="w-full bg-white rounded-2xl border border-dashed border-gray-300 py-16 text-center text-gray-400 hover:bg-violet-50 hover:border-violet-400 hover:text-violet-500 transition-colors group">
@@ -249,7 +268,7 @@ export default function EntityClient({
         ) : (
           <div className="text-center py-16 text-gray-400"><div className="text-5xl mb-3">{emptyIcon}</div><p className="text-sm">אין {pluralLabel} עדיין</p></div>
         )
-      ) : (
+      ) : viewMode === "cards" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((item) => {
             const cat = categories[item.category];
@@ -290,6 +309,56 @@ export default function EntityClient({
               </div>
             );
           })}
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[520px]">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="text-right px-4 py-3 font-semibold text-gray-600">שם</th>
+                  <th className="text-right px-4 py-3 font-semibold text-gray-600">קטגוריה</th>
+                  <th className="text-right px-4 py-3 font-semibold text-gray-600 hidden sm:table-cell">אנשי קשר</th>
+                  <th className="text-right px-4 py-3 font-semibold text-gray-600 hidden sm:table-cell">רכבים</th>
+                  {showFinancials && <th className="text-right px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">תשלומים</th>}
+                  <th className="px-4 py-3"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((item, i) => {
+                  const cat = categories[item.category];
+                  return (
+                    <tr key={item.id} onClick={() => openDetail(item)} className={`border-b border-gray-100 hover:bg-violet-50 cursor-pointer transition-colors ${i % 2 === 0 ? "" : "bg-gray-50/30"}`}>
+                      <td className="px-4 py-3 font-medium text-gray-900">
+                        {item.name}
+                        {item.notes && <p className="text-xs text-gray-400 font-normal truncate max-w-[200px]">{item.notes}</p>}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${cat?.color ?? "bg-gray-100 text-gray-600"}`}>{cat?.label ?? item.category}</span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{item._count.contacts}</td>
+                      <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{item._count.vehicles}</td>
+                      {showFinancials && <td className="px-4 py-3 text-gray-500 hidden md:table-cell">{item._count.payments}</td>}
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex gap-1 justify-end">
+                          <button onClick={() => copyLink(item)} className="p-1.5 rounded-lg hover:bg-violet-100 text-gray-400 hover:text-violet-700 transition-colors" title="העתק לינק">
+                            {copiedToken === item.id ? <Check size={14} className="text-emerald-600" /> : <Link2 size={14} />}
+                          </button>
+                          {isAdmin && <button onClick={() => setEditItem(item)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors" title="עריכה"><Pencil size={14} /></button>}
+                          {isAdmin && <button onClick={async () => {
+                            const ok = await confirm({ message: `למחוק את ${item.name}?`, danger: true, confirmLabel: "מחק" });
+                            if (!ok) return;
+                            await actions.delete(item.id, festivalId);
+                            toast(`ה${singularLabel} נמחק`);
+                          }} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors" title="מחיקה"><Trash2 size={14} /></button>}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

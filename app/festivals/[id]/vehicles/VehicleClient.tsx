@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
+import { X, Pencil, Trash2 } from "lucide-react";
 import VehicleScanner from "./VehicleScanner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -360,14 +361,14 @@ export default function VehicleClient({
                         className="p-2 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition"
                         title="עריכה"
                       >
-                        ✏️
+                        <Pencil size={14} />
                       </button>
                       <button
                         onClick={() => handleDelete(v.originalVehicle!.id)}
                         className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
                         title="מחק"
                       >
-                        🗑
+                        <Trash2 size={14} />
                       </button>
                     </>
                   )}
@@ -406,7 +407,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
       <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6 z-10 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"><X size={18} /></button>
         </div>
         {children}
       </div>

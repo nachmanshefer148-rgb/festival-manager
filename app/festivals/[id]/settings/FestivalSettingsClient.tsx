@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useRef } from "react";
+import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface Member {
@@ -143,10 +144,10 @@ export default function FestivalSettingsClient({
               {isOwner && (
                 <button
                   onClick={handleLogoRemove}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600"
                   title="הסר לוגו"
                 >
-                  ✕
+                  <X size={12} />
                 </button>
               )}
             </div>

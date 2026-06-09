@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { formatTime, STATUS_LABELS, STATUS_COLORS } from "@/lib/utils";
 import { useToast } from "@/app/components/Toast";
 import { useConfirm } from "@/app/components/ConfirmDialog";
+import { X, Pencil } from "lucide-react";
 import TimelineView from "./TimelineView";
 
 interface Artist {
@@ -419,11 +420,11 @@ export default function ScheduleClient({
                             {isAdmin && (
                               <td className="px-2 py-2 w-16 shrink-0">
                                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
-                                  <button onClick={() => setEditingTask(task)} className="text-gray-400 hover:text-violet-600 text-xs">✏️</button>
+                                  <button onClick={() => setEditingTask(task)} className="p-1 text-gray-400 hover:text-violet-600 rounded hover:bg-violet-50 transition-colors"><Pencil size={12} /></button>
                                   <button onClick={async () => {
                                     const ok = await confirm({ message: "למחוק משימה זו?", danger: true, confirmLabel: "מחק" });
                                     if (ok) { await deleteSetupTask(task.id, festivalId); toast("המשימה נמחקה"); }
-                                  }} className="text-gray-300 hover:text-red-400 text-xs">✕</button>
+                                  }} className="p-1 text-gray-300 hover:text-red-400 rounded hover:bg-red-50 transition-colors"><X size={12} /></button>
                                 </div>
                               </td>
                             )}
@@ -502,9 +503,9 @@ export default function ScheduleClient({
                         const ok = await confirm({ message: `למחוק את השלב "${stage.name}"?`, danger: true, confirmLabel: "מחק" });
                         if (ok) { await deleteStage(stage.id, festivalId); toast("השלב נמחק"); }
                       }}
-                      className="text-violet-300 hover:text-white text-xs"
+                      className="p-1 text-violet-300 hover:text-white rounded transition-colors"
                     >
-                      ✕
+                      <X size={13} />
                     </button>
                   )}
                 </div>
@@ -898,7 +899,7 @@ function SlotCard({
         </div>
         {isAdmin && (
           <div className="flex flex-col gap-1 shrink-0">
-            <button onClick={onEdit} className="text-gray-400 hover:text-violet-600 text-xs transition" title="ערוך">✏️</button>
+            <button onClick={onEdit} className="p-1 text-gray-400 hover:text-violet-600 rounded hover:bg-violet-50 transition-colors" title="ערוך"><Pencil size={12} /></button>
             <button
               onClick={async () => { await onStatusChange(slot.id, nextStatus[slot.status], festivalId); onToast("הסטטוס עודכן"); }}
               className="text-gray-400 hover:text-violet-600 text-xs transition"
@@ -909,8 +910,8 @@ function SlotCard({
                 const ok = await onConfirm({ message: "למחוק הופעה זו?", danger: true, confirmLabel: "מחק" });
                 if (ok) { await onDelete(slot.id, festivalId); onToast("ההופעה נמחקה"); }
               }}
-              className="text-gray-300 hover:text-red-500 text-xs transition"
-            >✕</button>
+              className="p-1 text-gray-300 hover:text-red-500 rounded hover:bg-red-50 transition-colors"
+            ><X size={12} /></button>
           </div>
         )}
       </div>
@@ -927,7 +928,7 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
       <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-[95vw] sm:max-w-md p-4 sm:p-6 z-10 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"><X size={18} /></button>
         </div>
         {children}
       </div>

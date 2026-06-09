@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { X } from "lucide-react";
 import { useToast } from "@/app/components/Toast";
 import { useConfirm } from "@/app/components/ConfirmDialog";
 
@@ -853,10 +854,10 @@ function AllDocsSection({
               {isAdmin && (
                 <button
                   onClick={() => handleDelete(f)}
-                  className="text-gray-300 hover:text-red-400 transition text-sm shrink-0"
+                  className="text-gray-300 hover:text-red-400 transition shrink-0"
                   title="מחק מסמך"
                 >
-                  ✕
+                  <X size={14} />
                 </button>
               )}
             </div>

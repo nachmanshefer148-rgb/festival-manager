@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { X, Pencil, Trash2 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useToast } from "@/app/components/Toast";
 import { useConfirm } from "@/app/components/ConfirmDialog";
@@ -222,7 +223,7 @@ export default function BudgetClient({
                           onClick={() => { setEditItem(item); setShowForm(true); }}
                           className="text-gray-400 hover:text-violet-600 transition-colors px-2 py-1 rounded hover:bg-violet-50"
                         >
-                          ✏️
+                          <Pencil size={14} />
                         </button>
                         <button
                           onClick={async () => {
@@ -232,7 +233,7 @@ export default function BudgetClient({
                           className="text-gray-400 hover:text-red-500 transition-colors px-2 py-1 rounded hover:bg-red-50"
                           aria-label="מחק פריט"
                         >
-                          🗑
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </td>
@@ -254,7 +255,7 @@ export default function BudgetClient({
               <h2 className="text-lg font-semibold text-gray-900">
                 {editItem ? "עריכת פריט" : defaultType === "INCOME" ? "הוסף הכנסה" : "הוסף הוצאה"}
               </h2>
-              <button onClick={() => { setShowForm(false); setEditItem(null); }} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+              <button onClick={() => { setShowForm(false); setEditItem(null); }} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"><X size={18} /></button>
             </div>
 
             <form

@@ -286,3 +286,70 @@ export async function submitBoothForm(
   revalidatePath(`/festivals/${booth.festivalId}/booths`);
   revalidatePath(`/festivals/${booth.festivalId}/vehicles`);
 }
+
+
+export interface BulkBoothItem {
+  name: string;
+  category?: string;
+  notes?: string;
+  contactName?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  vehiclePlate?: string;
+}
+
+function mapBoothCategory(val: string): string {
+  const v = (val ?? "").toLowerCase();
+  if (v.includes("אוכל") || v.includes("שתייה") || v.includes("food")) return "food";
+  if (v.includes("מרצ") || v.includes("merch")) return "merch";
+  if (v.includes("פעיל") || v.includes("משחק") || v.includes("activ")) return "activities";
+  if (v.includes("אמנ") || v.includes("יצירה") || v.includes("art")) return "art";
+  return "services";
+}
+
+export async function bulkCreateBooths(
+  festivalId: string,
+  items: BulkBoothItem[]
+): Promise<{ created: number; skipped: number }> {
+  const { requireAdmin } = await import("@/lib/authorize");
+  await requireAdmin();
+  await requireOwnedFestival(festivalId);
+
+  let created = 0;
+  let skipped = 0;
+
+  for (const item of items) {
+    if (!item.name.trim()) { skipped++; continue; }
+    try {
+      const booth = await prisma.booth.create({
+        data: {
+          festivalId,
+          name: item.name.trim(),
+          category: item.category ? mapBoothCategory(item.category) : "services",
+          notes: item.notes?.trim() || null,
+        },
+      });
+      if (item.contactName?.trim()) {
+        await prisma.boothContact.create({
+          data: {
+            boothId: booth.id,
+            name: item.contactName.trim(),
+            phone: item.contactPhone?.trim() || null,
+            email: item.contactEmail?.trim() || null,
+          },
+        });
+      }
+      if (item.vehiclePlate?.trim()) {
+        await prisma.boothVehicle.create({
+          data: { boothId: booth.id, plateNumber: item.vehiclePlate.trim() },
+        });
+      }
+      created++;
+    } catch {
+      skipped++;
+    }
+  }
+
+  revalidatePath(`/festivals/${festivalId}/booths`);
+  return { created, skipped };
+}

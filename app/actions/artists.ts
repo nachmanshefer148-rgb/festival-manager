@@ -305,3 +305,65 @@ export async function submitArtistForm(
   revalidatePath(`/festivals/${artist.festivalId}/documents`);
   revalidatePath(`/festivals/${artist.festivalId}/vehicles`);
 }
+
+export interface BulkArtistItem {
+  name: string;
+  genre?: string;
+  status?: string;
+  fee?: number;
+  setDuration?: number;
+  contactPhone?: string;
+  contactEmail?: string;
+  contactName?: string;
+  contactPhone2?: string;
+  vehiclePlate?: string;
+}
+
+export async function bulkCreateArtists(
+  festivalId: string,
+  items: BulkArtistItem[]
+): Promise<{ created: number; skipped: number }> {
+  await requireAdmin();
+  await requireOwnedFestival(festivalId);
+
+  let created = 0;
+  let skipped = 0;
+
+  for (const item of items) {
+    if (!item.name.trim()) { skipped++; continue; }
+    try {
+      const artist = await prisma.artist.create({
+        data: {
+          festivalId,
+          name: item.name.trim(),
+          genre: item.genre?.trim() || null,
+          status: item.status?.trim() || "confirmed",
+          fee: item.fee ?? null,
+          setDuration: item.setDuration ?? 60,
+          contactPhone: item.contactPhone?.trim() || null,
+          contactEmail: item.contactEmail?.trim() || null,
+        },
+      });
+      if (item.contactName?.trim()) {
+        await prisma.artistContact.create({
+          data: {
+            artistId: artist.id,
+            name: item.contactName.trim(),
+            phone: item.contactPhone2?.trim() || null,
+          },
+        });
+      }
+      if (item.vehiclePlate?.trim()) {
+        await prisma.artistVehicle.create({
+          data: { artistId: artist.id, plateNumber: item.vehiclePlate.trim() },
+        });
+      }
+      created++;
+    } catch {
+      skipped++;
+    }
+  }
+
+  revalidatePath(`/festivals/${festivalId}/artists`);
+  return { created, skipped };
+}

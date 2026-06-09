@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { formatTime, STATUS_LABELS, STATUS_COLORS } from "@/lib/utils";
 import { useToast } from "@/app/components/Toast";
 import { useConfirm } from "@/app/components/ConfirmDialog";
+import { X, Pencil, Trash2, Link2, Check } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -150,7 +151,7 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
       <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-[95vw] sm:max-w-lg p-4 sm:p-6 z-10 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"><X size={18} /></button>
         </div>
         {children}
       </div>
@@ -295,9 +296,9 @@ export default function ArtistDetailClient({
               {isAdmin && (
                 <button
                   onClick={() => setShowEdit(true)}
-                  className="shrink-0 text-gray-400 hover:text-violet-600 text-sm px-3 py-1.5 rounded-xl hover:bg-violet-50 transition-colors border border-gray-200 hover:border-violet-300"
+                  className="shrink-0 flex items-center gap-1.5 text-gray-400 hover:text-violet-600 text-sm px-3 py-1.5 rounded-xl hover:bg-violet-50 transition-colors border border-gray-200 hover:border-violet-300"
                 >
-                  ✏️ ערוך
+                  <Pencil size={14} /> ערוך
                 </button>
               )}
             </div>
@@ -567,9 +568,9 @@ export default function ArtistDetailClient({
               <button
                 type="button"
                 onClick={handleDeleteArtist}
-                className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-xl transition"
+                className="flex items-center gap-1.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-xl transition"
               >
-                🗑 מחק אמן
+                <Trash2 size={14} /> מחק אמן
               </button>
               <div className="flex gap-2">
               <button type="button" onClick={() => setShowEdit(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition">ביטול</button>
@@ -641,8 +642,8 @@ function ContactsTab({
                 const ok = await confirm({ message: `למחוק את ${c.name}?`, danger: true, confirmLabel: "מחק" });
                 if (ok) { await deleteArtistContact(c.id, artistId, festivalId); toast("איש הקשר נמחק"); }
               }}
-              className="text-gray-300 hover:text-red-500 transition-colors shrink-0"
-            >✕</button>
+              className="text-gray-300 hover:text-red-500 transition-colors shrink-0 p-1 rounded hover:bg-red-50"
+            ><X size={14} /></button>
           )}
         </div>
       ))}
@@ -749,8 +750,8 @@ function VehiclesTab({
                 const ok = await confirm({ message: `למחוק רכב ${v.plateNumber}?`, danger: true, confirmLabel: "מחק" });
                 if (ok) { await deleteArtistVehicle(v.id, artistId, festivalId); toast("הרכב נמחק"); }
               }}
-              className="text-gray-300 hover:text-red-500 transition-colors shrink-0"
-            >✕</button>
+              className="text-gray-300 hover:text-red-500 transition-colors shrink-0 p-1 rounded hover:bg-red-50"
+            ><X size={14} /></button>
           )}
         </div>
       ))}
@@ -906,8 +907,8 @@ function RiderTab({
           <p className="text-sm text-gray-400 text-center py-6">אין מפרט טכני עדיין</p>
         )}
         {isAdmin && (
-          <button onClick={() => setEditing(true)} className="text-sm text-violet-600 hover:text-violet-800 font-medium transition-colors">
-            ✏️ ערוך מפרט
+          <button onClick={() => setEditing(true)} className="flex items-center gap-1.5 text-sm text-violet-600 hover:text-violet-800 font-medium transition-colors">
+            <Pencil size={14} /> ערוך מפרט
           </button>
         )}
       </div>
@@ -1143,8 +1144,8 @@ function FilesTab({
                 const ok = await confirm({ message: `למחוק "${f.name}"?`, danger: true, confirmLabel: "מחק" });
                 if (ok) { await deleteArtistFile(f.id, artistId, festivalId); toast("הקובץ נמחק"); }
               }}
-              className="text-gray-300 hover:text-red-500 transition-colors"
-            >✕</button>
+              className="text-gray-300 hover:text-red-500 transition-colors p-1 rounded hover:bg-red-50"
+            ><X size={14} /></button>
           )}
         </div>
       ))}
@@ -1153,14 +1154,14 @@ function FilesTab({
         <div className="flex gap-2 pt-1">
           {mode !== "upload" && (
             <label className="cursor-pointer text-sm text-violet-600 hover:text-violet-800 font-medium transition-colors flex items-center gap-1">
-              {uploading ? "מעלה..." : "📎 העלה קובץ"}
+              {uploading ? "מעלה..." : "העלה קובץ"}
               <input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" className="sr-only"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); }} />
             </label>
           )}
           {mode !== "link" && (
-            <button onClick={() => setMode("link")} className="text-sm text-gray-500 hover:text-violet-600 transition-colors">
-              🔗 קישור חיצוני
+            <button onClick={() => setMode("link")} className="flex items-center gap-1 text-sm text-gray-500 hover:text-violet-600 transition-colors">
+              <Link2 size={13} /> קישור חיצוני
             </button>
           )}
         </div>
@@ -1280,11 +1281,11 @@ function PaymentsTab({
                 p.isPaid ? "bg-emerald-500 border-emerald-500 text-white" : "border-gray-300 hover:border-emerald-400"
               }`}
             >
-              {p.isPaid && <span className="text-xs">✓</span>}
+              {p.isPaid && <Check size={12} />}
             </button>
           ) : (
             <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${p.isPaid ? "bg-emerald-500 border-emerald-500 text-white" : "border-gray-200"}`}>
-              {p.isPaid && <span className="text-xs">✓</span>}
+              {p.isPaid && <Check size={12} />}
             </div>
           )}
           <div className="flex-1 min-w-0">
@@ -1300,8 +1301,8 @@ function PaymentsTab({
                 const ok2 = await confirm({ message: `למחוק תשלום "${p.description}"?`, danger: true, confirmLabel: "מחק" });
                 if (ok2) { await deleteArtistPayment(p.id, artistId, festivalId); toast("התשלום נמחק"); }
               }}
-              className="text-gray-300 hover:text-red-500 transition-colors"
-            >✕</button>
+              className="text-gray-300 hover:text-red-500 transition-colors p-1 rounded hover:bg-red-50"
+            ><X size={14} /></button>
           )}
         </div>
       ))}
