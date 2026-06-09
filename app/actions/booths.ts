@@ -28,6 +28,7 @@ export async function getBoothDetails(boothId: string, festivalId: string) {
   if (!booth) return null;
   return {
     ...booth,
+    category: booth.categoryId ?? "",
     createdAt: booth.createdAt.toISOString(),
     payments: booth.payments.map((p) => ({ ...p, dueDate: p.dueDate?.toISOString() ?? null })),
     files: booth.files.map((f) => ({ ...f, createdAt: f.createdAt.toISOString() })),
@@ -41,7 +42,7 @@ export async function createBooth(formData: FormData) {
     data: {
       festivalId,
       name: requireString(formData, "name", "שם"),
-      category: requireString(formData, "category", "קטגוריה"),
+      categoryId: readString(formData, "category") || null,
       notes: readString(formData, "notes") || null,
     },
   });
@@ -54,7 +55,7 @@ export async function updateBooth(id: string, formData: FormData) {
     where: { id },
     data: {
       name: requireString(formData, "name", "שם"),
-      category: requireString(formData, "category", "קטגוריה"),
+      categoryId: readString(formData, "category") || null,
       notes: readString(formData, "notes") || null,
     },
   });
@@ -234,7 +235,7 @@ export async function approveBoothApplication(id: string, festivalId: string) {
   if (!app) throw new Error("בקשה לא נמצאה");
   await prisma.$transaction(async (tx) => {
     const booth = await tx.booth.create({
-      data: { festivalId, name: app.boothName, category: app.category, notes: app.notes || null },
+      data: { festivalId, name: app.boothName, categoryId: null, notes: app.notes || null },
     });
     if (app.contactName) {
       await tx.boothContact.create({
@@ -290,21 +291,12 @@ export async function submitBoothForm(
 
 export interface BulkBoothItem {
   name: string;
-  category?: string;
+  categoryId?: string;
   notes?: string;
   contactName?: string;
   contactPhone?: string;
   contactEmail?: string;
   vehiclePlate?: string;
-}
-
-function mapBoothCategory(val: string): string {
-  const v = (val ?? "").toLowerCase();
-  if (v.includes("אוכל") || v.includes("שתייה") || v.includes("food")) return "food";
-  if (v.includes("מרצ") || v.includes("merch")) return "merch";
-  if (v.includes("פעיל") || v.includes("משחק") || v.includes("activ")) return "activities";
-  if (v.includes("אמנ") || v.includes("יצירה") || v.includes("art")) return "art";
-  return "services";
 }
 
 export async function bulkCreateBooths(
@@ -325,7 +317,7 @@ export async function bulkCreateBooths(
         data: {
           festivalId,
           name: item.name.trim(),
-          category: item.category ? mapBoothCategory(item.category) : "services",
+          categoryId: item.categoryId || null,
           notes: item.notes?.trim() || null,
         },
       });
@@ -352,4 +344,22 @@ export async function bulkCreateBooths(
 
   revalidatePath(`/festivals/${festivalId}/booths`);
   return { created, skipped };
+}
+
+export async function createBoothCategory(festivalId: string, name: string): Promise<void> {
+  await requireOwnedFestival(festivalId);
+  await prisma.boothCategory.create({ data: { festivalId, name: name.trim() } });
+  revalidatePath(`/festivals/${festivalId}/booths`);
+}
+
+export async function updateBoothCategory(id: string, festivalId: string, name: string): Promise<void> {
+  await requireOwnedFestival(festivalId);
+  await prisma.boothCategory.updateMany({ where: { id, festivalId }, data: { name: name.trim() } });
+  revalidatePath(`/festivals/${festivalId}/booths`);
+}
+
+export async function deleteBoothCategory(id: string, festivalId: string): Promise<void> {
+  await requireOwnedFestival(festivalId);
+  await prisma.boothCategory.deleteMany({ where: { id, festivalId } });
+  revalidatePath(`/festivals/${festivalId}/booths`);
 }

@@ -1,6 +1,6 @@
 export interface BulkVendorItem {
   name: string;
-  category: string;
+  categoryId?: string;
   notes?: string;
   contactName?: string;
   contactPhone?: string;

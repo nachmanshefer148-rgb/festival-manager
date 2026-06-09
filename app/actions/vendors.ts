@@ -30,6 +30,7 @@ export async function getVendorDetails(vendorId: string, festivalId: string) {
   if (!vendor) return null;
   return {
     ...vendor,
+    category: vendor.categoryId ?? "",
     createdAt: vendor.createdAt.toISOString(),
     payments: vendor.payments.map((p) => ({ ...p, dueDate: p.dueDate?.toISOString() ?? null })),
     files: vendor.files.map((f) => ({ ...f, createdAt: f.createdAt.toISOString() })),
@@ -44,7 +45,7 @@ export async function createVendor(formData: FormData) {
     data: {
       festivalId,
       name: formData.get("name") as string,
-      category: formData.get("category") as string,
+      categoryId: (formData.get("category") as string) || null,
       notes: (formData.get("notes") as string) || null,
     },
   });
@@ -57,7 +58,7 @@ export async function updateVendor(id: string, formData: FormData) {
     where: { id },
     data: {
       name: formData.get("name") as string,
-      category: formData.get("category") as string,
+      categoryId: (formData.get("category") as string) || null,
       notes: (formData.get("notes") as string) || null,
     },
   });
@@ -215,7 +216,7 @@ export async function registerNewVendorByToken(
     data: {
       festivalId: festival.id,
       name: name.trim(),
-      category: category.trim(),
+      categoryId: null,
       notes: notes.trim() || null,
     },
   });
@@ -231,12 +232,11 @@ export async function bulkCreateVendors(festivalId: string, items: BulkVendorIte
     for (const item of limited) {
       const name = item.name?.trim();
       if (!name) continue;
-      const category = item.category?.trim() || "production";
       const vendor = await tx.vendor.create({
         data: {
           festivalId,
           name,
-          category,
+          categoryId: item.categoryId || null,
           notes: item.notes?.trim() || null,
         },
       });
@@ -308,4 +308,25 @@ export async function submitVendorForm(
   });
 
   revalidatePath(`/festivals/${vendor.festivalId}/vendors`);
+}
+
+export async function createVendorCategory(festivalId: string, name: string): Promise<void> {
+  await requireAdmin();
+  await requireOwnedFestival(festivalId);
+  await prisma.vendorCategory.create({ data: { festivalId, name: name.trim() } });
+  revalidatePath(`/festivals/${festivalId}/vendors`);
+}
+
+export async function updateVendorCategory(id: string, festivalId: string, name: string): Promise<void> {
+  await requireAdmin();
+  await requireOwnedFestival(festivalId);
+  await prisma.vendorCategory.updateMany({ where: { id, festivalId }, data: { name: name.trim() } });
+  revalidatePath(`/festivals/${festivalId}/vendors`);
+}
+
+export async function deleteVendorCategory(id: string, festivalId: string): Promise<void> {
+  await requireAdmin();
+  await requireOwnedFestival(festivalId);
+  await prisma.vendorCategory.deleteMany({ where: { id, festivalId } });
+  revalidatePath(`/festivals/${festivalId}/vendors`);
 }

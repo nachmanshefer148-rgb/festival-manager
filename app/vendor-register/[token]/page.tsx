@@ -17,7 +17,7 @@ export default async function VendorRegisterPage({
       name: true,
       logoUrl: true,
       vendors: {
-        select: { id: true, name: true, category: true, vendorToken: true },
+        select: { id: true, name: true, category: { select: { name: true } }, vendorToken: true },
         orderBy: { name: "asc" },
       },
     },
@@ -51,7 +51,7 @@ export default async function VendorRegisterPage({
 
         <VendorRegisterClient
           festivalToken={token}
-          vendors={festival.vendors}
+          vendors={festival.vendors.map((v) => ({ ...v, category: v.category?.name ?? "" }))}
           registerNewVendor={registerNewVendorByToken}
         />
       </div>

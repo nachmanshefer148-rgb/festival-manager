@@ -15,10 +15,15 @@ import {
   updateVendor,
   generateVendorsToken,
   bulkCreateVendors,
+  createVendorCategory,
+  updateVendorCategory,
+  deleteVendorCategory,
 } from "@/app/actions";
 import { requireFestivalAccessPage } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import VendorClient from "./VendorClient";
+
+const DEFAULT_VENDOR_CATEGORIES = ["הפקה", "לוגיסטיקה", "מזון ומשקאות", "אבטחה/רפואה"];
 
 export default async function VendorsPage({
   params,
@@ -33,12 +38,27 @@ export default async function VendorsPage({
     select: { vendorsToken: true },
   });
 
+  let categories = await prisma.vendorCategory.findMany({
+    where: { festivalId: id },
+    orderBy: { name: "asc" },
+  });
+
+  if (categories.length === 0) {
+    await prisma.vendorCategory.createMany({
+      data: DEFAULT_VENDOR_CATEGORIES.map((name) => ({ name, festivalId: id })),
+    });
+    categories = await prisma.vendorCategory.findMany({
+      where: { festivalId: id },
+      orderBy: { name: "asc" },
+    });
+  }
+
   const vendors = await prisma.vendor.findMany({
     where: { festivalId: id },
     select: {
       id: true,
       name: true,
-      category: true,
+      categoryId: true,
       notes: true,
       vendorToken: true,
       createdAt: true,
@@ -52,6 +72,7 @@ export default async function VendorsPage({
 
   const serialized = vendors.map((vendor) => ({
     ...vendor,
+    category: vendor.categoryId ?? "",
     createdAt: vendor.createdAt.toISOString(),
   }));
 
@@ -59,6 +80,7 @@ export default async function VendorsPage({
     <VendorClient
       festivalId={id}
       vendors={serialized}
+      categories={categories}
       isAdmin={access.isAdmin}
       canAccessFiles={access.canViewDocuments}
       showFinancials={access.canViewBudget}
@@ -78,6 +100,9 @@ export default async function VendorsPage({
       deleteVendorFile={deleteVendorFile}
       generateVendorsToken={generateVendorsToken}
       bulkCreateVendors={bulkCreateVendors}
+      createCategory={createVendorCategory}
+      updateCategory={updateVendorCategory}
+      deleteCategory={deleteVendorCategory}
     />
   );
 }

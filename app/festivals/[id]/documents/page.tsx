@@ -87,6 +87,7 @@ export default async function DocumentsPage({
 
   const serializedVendors = vendors.map((vendor) => ({
     ...vendor,
+    category: vendor.categoryId ?? "",
     createdAt: vendor.createdAt.toISOString(),
     files: vendor.files.map((file) => ({ ...file, createdAt: file.createdAt.toISOString() })),
   }));

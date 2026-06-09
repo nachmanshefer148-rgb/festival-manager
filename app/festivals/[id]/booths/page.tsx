@@ -16,10 +16,15 @@ import {
   rejectBoothApplication,
   toggleBoothPayment,
   updateBooth,
+  createBoothCategory,
+  updateBoothCategory,
+  deleteBoothCategory,
 } from "@/app/actions";
 import { requireFestivalAccessPage } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import BoothClient from "./BoothClient";
+
+const DEFAULT_BOOTH_CATEGORIES = ["אוכל ושתייה", "מרצ'נדייז", "פעילויות ומשחקים", "אמנות ויצירה", "שירותים אחרים"];
 
 export default async function BoothsPage({
   params,
@@ -29,13 +34,28 @@ export default async function BoothsPage({
   const { id } = await params;
   const access = await requireFestivalAccessPage(id);
 
+  let boothCategories = await prisma.boothCategory.findMany({
+    where: { festivalId: id },
+    orderBy: { name: "asc" },
+  });
+
+  if (boothCategories.length === 0) {
+    await prisma.boothCategory.createMany({
+      data: DEFAULT_BOOTH_CATEGORIES.map((name) => ({ name, festivalId: id })),
+    });
+    boothCategories = await prisma.boothCategory.findMany({
+      where: { festivalId: id },
+      orderBy: { name: "asc" },
+    });
+  }
+
   const [booths, festival, applications] = await Promise.all([
     prisma.booth.findMany({
       where: { festivalId: id },
       select: {
         id: true,
         name: true,
-        category: true,
+        categoryId: true,
         notes: true,
         boothToken: true,
         createdAt: true,
@@ -56,13 +76,18 @@ export default async function BoothsPage({
     }),
   ]);
 
-  const serialized = booths.map((b) => ({ ...b, createdAt: b.createdAt.toISOString() }));
+  const serialized = booths.map((b) => ({
+    ...b,
+    category: b.categoryId ?? "",
+    createdAt: b.createdAt.toISOString(),
+  }));
   const serializedApps = applications.map((a) => ({ ...a, createdAt: a.createdAt.toISOString() }));
 
   return (
     <BoothClient
       festivalId={id}
       booths={serialized}
+      categories={boothCategories}
       applications={serializedApps}
       boothsToken={festival?.boothsToken ?? null}
       isAdmin={access.isAdmin}
@@ -84,6 +109,9 @@ export default async function BoothsPage({
       deleteBoothPayment={deleteBoothPayment}
       createBoothFile={createBoothFile}
       deleteBoothFile={deleteBoothFile}
+      createCategory={createBoothCategory}
+      updateCategory={updateBoothCategory}
+      deleteCategory={deleteBoothCategory}
     />
   );
 }

@@ -10,13 +10,13 @@ datasource db {
 }
 
 model User {
-  id           String     @id @default(cuid())
+  id           String   @id @default(cuid())
   name         String
-  email        String     @unique
+  email        String   @unique
   passwordHash String
-  role         UserRole   @default(USER)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  role         UserRole @default(USER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   festivals           Festival[]
   passwordResetTokens PasswordResetToken[]
@@ -24,35 +24,35 @@ model User {
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
+  id        String    @id @default(cuid())
+  token     String    @unique
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 }
 
 model Festival {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  startDate   DateTime
-  endDate     DateTime
-  location    String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  inviteToken   String?  @unique
-  ownerId       String?
-  viewerToken   String?  @unique
-  artistsToken  String?  @unique
-  vendorsToken  String?  @unique
-  boothsToken   String?  @unique
-  viewerAccessEnabled Boolean @default(false)
-  viewerShowBudget Boolean @default(false)
-  viewerShowDocuments Boolean @default(false)
-  logoUrl     String?
-  owner       User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  id                  String   @id @default(cuid())
+  name                String
+  description         String?
+  startDate           DateTime
+  endDate             DateTime
+  location            String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  inviteToken         String?  @unique
+  ownerId             String?
+  viewerToken         String?  @unique
+  artistsToken        String?  @unique
+  vendorsToken        String?  @unique
+  boothsToken         String?  @unique
+  viewerAccessEnabled Boolean  @default(false)
+  viewerShowBudget    Boolean  @default(false)
+  viewerShowDocuments Boolean  @default(false)
+  logoUrl             String?
+  owner               User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
 
   stages            Stage[]
   artists           Artist[]
@@ -61,12 +61,14 @@ model Festival {
   budgetItems       BudgetItem[]
   applications      TeamApplication[]
   vendors           Vendor[]
+  vendorCategories  VendorCategory[]
   festivalFiles     FestivalFile[]
   setupTasks        FestivalSetupTask[]
   communityContacts FestivalCommunityContact[]
   members           FestivalMember[]
   vehicles          Vehicle[]
   booths            Booth[]
+  boothCategories   BoothCategory[]
   boothApplications BoothApplication[]
 }
 
@@ -85,9 +87,9 @@ model Stage {
   festivalId        String
   festival          Festival    @relation(fields: [festivalId], references: [id], onDelete: Cascade)
 
-  powerSpec         String?
-  dimensions        String?
-  dressingRoomInfo  String?
+  powerSpec        String?
+  dimensions       String?
+  dressingRoomInfo String?
 
   timeSlots TimeSlot[]
   files     StageFile[]
@@ -128,37 +130,37 @@ model Artist {
   festivalId         String
   festival           Festival @relation(fields: [festivalId], references: [id], onDelete: Cascade)
 
-  artistToken        String   @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  artistToken String @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 
   // פרופיל וסטטוס
-  profileImageUrl    String?
-  status             String   @default("confirmed")
-  privateNotes       String?
+  profileImageUrl String?
+  status          String  @default("confirmed")
+  privateNotes    String?
 
   // סוכן / מנהל
-  agentName          String?
-  agentPhone         String?
-  agentEmail         String?
-  fee                Float?
+  agentName  String?
+  agentPhone String?
+  agentEmail String?
+  fee        Float?
 
   // רשתות חברתיות
-  instagramUrl       String?
-  facebookUrl        String?
-  websiteUrl         String?
-  spotifyUrl         String?
+  instagramUrl String?
+  facebookUrl  String?
+  websiteUrl   String?
+  spotifyUrl   String?
 
   // לוגיסטיקה
-  loadInTime            String?
-  loadOutTime           String?
-  accommodationNotes    String?
-  dietaryRequirements   String?
+  loadInTime          String?
+  loadOutTime         String?
+  accommodationNotes  String?
+  dietaryRequirements String?
 
   // מפרט טכני — שדות מובנים
   stageSize              String?
-  paSystemRequired       Boolean  @default(false)
-  monitorsCount          Int      @default(2)
-  microphonesCount       Int      @default(2)
-  djEquipmentRequired    Boolean  @default(false)
+  paSystemRequired       Boolean @default(false)
+  monitorsCount          Int     @default(2)
+  microphonesCount       Int     @default(2)
+  djEquipmentRequired    Boolean @default(false)
   electricalRequirements String?
   lightingNotes          String?
   backlineNotes          String?
@@ -166,11 +168,11 @@ model Artist {
   technicalRiderNotes    String?
   technicalRiderPdfUrl   String?
 
-  timeSlots          TimeSlot[]
-  files              ArtistFile[]
-  payments           ArtistPayment[]
-  contacts           ArtistContact[]
-  vehicles           ArtistVehicle[]
+  timeSlots TimeSlot[]
+  files     ArtistFile[]
+  payments  ArtistPayment[]
+  contacts  ArtistContact[]
+  vehicles  ArtistVehicle[]
 }
 
 model ArtistContact {
@@ -224,11 +226,11 @@ model TimeSlot {
   notes          String?
   technicianName String?
 
-  stageId   String
-  stage     Stage  @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  stageId String
+  stage   Stage  @relation(fields: [stageId], references: [id], onDelete: Cascade)
 
-  artistId  String?
-  artist    Artist? @relation(fields: [artistId], references: [id], onDelete: SetNull)
+  artistId String?
+  artist   Artist? @relation(fields: [artistId], references: [id], onDelete: SetNull)
 }
 
 model TeamMemberRole {
@@ -240,17 +242,17 @@ model TeamMemberRole {
 }
 
 model TeamMember {
-  id         String         @id @default(cuid())
-  firstName  String
-  lastName   String
-  roleId     String
-  role       TeamMemberRole @relation(fields: [roleId], references: [id])
-  email      String?
-  phone      String?
-  carNumber  String?
-  notes      String?
-  festivalId String
-  festival   Festival       @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+  id            String         @id @default(cuid())
+  firstName     String
+  lastName      String
+  roleId        String
+  role          TeamMemberRole @relation(fields: [roleId], references: [id])
+  email         String?
+  phone         String?
+  carNumber     String?
+  notes         String?
+  festivalId    String
+  festival      Festival       @relation(fields: [festivalId], references: [id], onDelete: Cascade)
   managedStages Stage[]
 
   emergencyContactName  String?
@@ -287,21 +289,31 @@ model TeamApplication {
   festival   Festival @relation(fields: [festivalId], references: [id], onDelete: Cascade)
 }
 
+model VendorCategory {
+  id         String   @id @default(cuid())
+  name       String
+  festivalId String
+  festival   Festival @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+  vendors    Vendor[]
+}
+
 model Vendor {
-  id          String          @id @default(cuid())
-  name        String
-  category    String
-  notes       String?
-  vendorToken String          @unique @default(uuid())
-  createdAt   DateTime        @default(now())
-  festivalId  String
-  festival    Festival        @relation(fields: [festivalId], references: [id], onDelete: Cascade)
-  contacts        VendorContact[]
-  vehicles        VendorVehicle[]
-  payments        VendorPayment[]
-  files           VendorFile[]
+  id               String          @id @default(cuid())
+  name             String
+  categoryId       String?
+  category         VendorCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  notes            String?
+  vendorToken      String          @unique @default(uuid())
+  createdAt        DateTime        @default(now())
+  festivalId       String
+  festival         Festival        @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+  contacts         VendorContact[]
+  vehicles         VendorVehicle[]
+  payments         VendorPayment[]
+  files            VendorFile[]
   festivalVehicles Vehicle[]
 }
+
 model VendorContact {
   id       String  @id @default(cuid())
   name     String
@@ -364,7 +376,7 @@ model FestivalSetupTask {
 }
 
 model FestivalCommunityContact {
-  id         String  @id @default(cuid())
+  id         String   @id @default(cuid())
   name       String
   role       String
   phone      String?
@@ -396,20 +408,29 @@ model Vehicle {
   createdAt  DateTime @default(now())
 }
 
-model Booth {
+model BoothCategory {
   id         String   @id @default(cuid())
   name       String
-  category   String
+  festivalId String
+  festival   Festival @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+  booths     Booth[]
+}
+
+model Booth {
+  id         String         @id @default(cuid())
+  name       String
+  categoryId String?
+  category   BoothCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   notes      String?
   boothToken String   @unique @default(uuid())
   createdAt  DateTime @default(now())
   festivalId String
   festival   Festival @relation(fields: [festivalId], references: [id], onDelete: Cascade)
 
-  contacts  BoothContact[]
-  vehicles  BoothVehicle[]
-  payments  BoothPayment[]
-  files     BoothFile[]
+  contacts BoothContact[]
+  vehicles BoothVehicle[]
+  payments BoothPayment[]
+  files    BoothFile[]
 
   locationOnGrounds String?
   dimensions        String?
