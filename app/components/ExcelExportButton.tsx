@@ -15,8 +15,8 @@ export default function ExcelExportButton({ label = "ייצא אקסל", filenam
   if (!isAdmin) return null;
 
   function handleExport() {
-    const data = buildWorkbook(headers, getData());
-    downloadWorkbook(filename, data);
+    const wb = buildWorkbook(headers, getData());
+    downloadWorkbook(filename, wb);
   }
 
   return (

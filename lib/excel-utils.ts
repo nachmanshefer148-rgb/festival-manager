@@ -28,30 +28,20 @@ export function mapColumn(row: Record<string, string>, aliases: string[]): strin
   return "";
 }
 
-export function buildWorkbook(headers: string[], rows: object[]): Uint8Array {
+export function buildWorkbook(headers: string[], rows: object[]): XLSX.WorkBook {
   const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "גיליון 1");
-  return XLSX.write(wb, { type: "array", bookType: "xlsx" });
+  XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+  return wb;
 }
 
-export function downloadWorkbook(filename: string, data: Uint8Array) {
-  const blob = new Blob(
-    [data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer],
-    { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }
-  );
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+export function downloadWorkbook(filename: string, wb: XLSX.WorkBook) {
+  XLSX.writeFile(wb, filename);
 }
 
 export function generateTemplate(filename: string, headers: string[]) {
   const ws = XLSX.utils.aoa_to_sheet([headers]);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "גיליון 1");
-  const data: Uint8Array = XLSX.write(wb, { type: "array", bookType: "xlsx" });
-  downloadWorkbook(filename, data);
+  XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+  XLSX.writeFile(wb, filename);
 }

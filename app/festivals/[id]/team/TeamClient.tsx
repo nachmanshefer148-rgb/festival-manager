@@ -157,8 +157,8 @@ export default function TeamClient({
       "מס' רכב": m.carNumber ?? "",
       "הערות": m.notes ?? "",
     }));
-    const data = buildWorkbook(["שם פרטי", "שם משפחה", "תפקיד", "טלפון", "מייל", "מס' רכב", "הערות"], rows);
-    downloadWorkbook("team.xlsx", data);
+    const wb = buildWorkbook(["שם פרטי", "שם משפחה", "תפקיד", "טלפון", "מייל", "מס' רכב", "הערות"], rows);
+    downloadWorkbook("team.xlsx", wb);
   }
 
   const inputCls = "w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition bg-white";

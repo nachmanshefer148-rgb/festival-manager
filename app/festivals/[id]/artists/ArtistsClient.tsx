@@ -109,8 +109,8 @@ export default function ArtistsClient({ festivalId, artists, isAdmin, addArtistB
       "טלפון איש קשר": a.contacts[0]?.phone ?? "",
       "רישוי רכב": a.vehicles.map((v) => v.plateNumber).join(", "),
     }));
-    const data = buildWorkbook(TEMPLATE_HEADERS, rows);
-    downloadWorkbook("artists.xlsx", data);
+    const wb = buildWorkbook(TEMPLATE_HEADERS, rows);
+    downloadWorkbook("artists.xlsx", wb);
   }
 
   const quickArtist = quickViewId ? artists.find((a) => a.id === quickViewId) : null;

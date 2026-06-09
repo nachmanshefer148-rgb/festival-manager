@@ -150,8 +150,8 @@ export default function BoothClient({
       "אנשי קשר": item._count.contacts,
       "רכבים": item._count.vehicles,
     }));
-    const data = buildWorkbook(["שם", "קטגוריה", "הערות", "אנשי קשר", "רכבים"], rows);
-    downloadWorkbook("booths.xlsx", data);
+    const wb = buildWorkbook(["שם", "קטגוריה", "הערות", "אנשי קשר", "רכבים"], rows);
+    downloadWorkbook("booths.xlsx", wb);
   }
 
   // ── Category manager actions ────────────────────────────────────────────────
