@@ -11,7 +11,7 @@ export interface BulkBudgetItem {
   categoryId?: string;
   vendor?: string;
   amount: number;
-  hasVat?: boolean;
+  vatMode?: string;
   isPaid?: boolean;
   date?: string;
   notes?: string;
@@ -31,7 +31,7 @@ export async function createBudgetItem(formData: FormData) {
       vendor: (formData.get("vendor") as string) || null,
       notes: (formData.get("notes") as string) || null,
       isPaid: formData.get("isPaid") === "true",
-      hasVat: formData.get("hasVat") === "true",
+      vatMode: (formData.get("vatMode") as string) || "NONE",
       date: formData.get("date") ? new Date(formData.get("date") as string) : new Date(),
     },
   });
@@ -50,7 +50,7 @@ export async function updateBudgetItem(id: string, formData: FormData) {
       vendor: (formData.get("vendor") as string) || null,
       notes: (formData.get("notes") as string) || null,
       isPaid: formData.get("isPaid") === "true",
-      hasVat: formData.get("hasVat") === "true",
+      vatMode: (formData.get("vatMode") as string) || "NONE",
       date: formData.get("date") ? new Date(formData.get("date") as string) : new Date(),
     },
   });
@@ -118,7 +118,7 @@ export async function bulkCreateBudgetItems(
           vendor: item.vendor?.trim() || null,
           notes: item.notes?.trim() || null,
           isPaid: item.isPaid ?? false,
-          hasVat: item.hasVat ?? false,
+          vatMode: item.vatMode ?? "NONE",
           date: item.date ? new Date(item.date) : new Date(),
         },
       });

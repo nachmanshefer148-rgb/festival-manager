@@ -1,20 +1,27 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { X, Pencil, Trash2, Settings2, Download, Check, FileSpreadsheet } from "lucide-react";
+import { X, Pencil, Trash2, Settings2, Download, Check } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useToast } from "@/app/components/Toast";
 import { useConfirm } from "@/app/components/ConfirmDialog";
-import { buildWorkbook, downloadWorkbook, mapColumn, parseExcel } from "@/lib/excel-utils";
+import { buildWorkbook, downloadWorkbook, mapColumn } from "@/lib/excel-utils";
 import type { BulkBudgetItem } from "@/app/actions/budget";
 import ExcelImportModal from "@/app/components/ExcelImportModal";
 
 const VAT_RATE = 0.17;
+type VatMode = "NONE" | "INCLUDED" | "ADDED";
 
-function vatBreakdown(amount: number, hasVat: boolean) {
-  if (!hasVat) return { net: amount, vat: 0, gross: amount };
-  const net = Math.round(amount / (1 + VAT_RATE));
-  return { net, vat: amount - net, gross: amount };
+function vatBreakdown(amount: number, vatMode: string) {
+  if (vatMode === "INCLUDED") {
+    const net = Math.round(amount / (1 + VAT_RATE));
+    return { net, vat: amount - net, gross: amount };
+  }
+  if (vatMode === "ADDED") {
+    const vat = Math.round(amount * VAT_RATE);
+    return { net: amount, vat, gross: amount + vat };
+  }
+  return { net: amount, vat: 0, gross: amount };
 }
 
 interface Category { id: string; name: string; type: string; }
@@ -26,7 +33,7 @@ interface BudgetItem {
   type: "INCOME" | "EXPENSE";
   categoryId: string | null;
   categoryName: string | null;
-  hasVat: boolean;
+  vatMode: string;
   date: string;
   isPaid: boolean;
   vendor: string | null;
@@ -50,7 +57,13 @@ interface Props {
   bulkCreateBudgetItems: (festivalId: string, items: BulkBudgetItem[]) => Promise<{ created: number; skipped: number }>;
 }
 
-const TEMPLATE_HEADERS = ["תיאור", "סוג", "קטגוריה", "ספק/גורם", "סכום", 'כולל מע"מ (כן/לא)', "שולם (כן/לא)", "תאריך", "הערות"];
+const TEMPLATE_HEADERS = ["תיאור", "סוג", "קטגוריה", "ספק/גורם", "סכום", 'מע"מ (ללא/כולל/פלוס)', "שולם (כן/לא)", "תאריך", "הערות"];
+
+const VAT_LABEL: Record<VatMode, string> = {
+  NONE: 'ללא מע"מ',
+  INCLUDED: 'כולל מע"מ',
+  ADDED: 'פלוס מע"מ',
+};
 
 export default function BudgetClient({
   festivalId, items, expenseCategories, incomeCategories, vendorNames, isAdmin,
@@ -64,7 +77,6 @@ export default function BudgetClient({
   const [filterCategoryId, setFilterCategoryId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<BudgetItem | null>(null);
-  const [defaultType, setDefaultType] = useState<"INCOME" | "EXPENSE">("EXPENSE");
   const [submitting, setSubmitting] = useState(false);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [catTab, setCatTab] = useState<"EXPENSE" | "INCOME">("EXPENSE");
@@ -72,16 +84,15 @@ export default function BudgetClient({
   const [addingCat, setAddingCat] = useState(false);
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [editingCatName, setEditingCatName] = useState("");
-  // Form state for VAT preview
-  const [formAmount, setFormAmount] = useState<string>("");
-  const [formHasVat, setFormHasVat] = useState(false);
+
+  // Controlled form state
   const [formType, setFormType] = useState<"INCOME" | "EXPENSE">("EXPENSE");
+  const [formVatMode, setFormVatMode] = useState<VatMode>("NONE");
+  const [formAmount, setFormAmount] = useState("");
 
   const allCategories = [...expenseCategories, ...incomeCategories];
+  const anyVat = items.some((i) => i.vatMode !== "NONE");
 
-  const anyHasVat = items.some((i) => i.hasVat);
-
-  // Filtered items
   const filtered = useMemo(() => {
     let list = items;
     if (filterType !== "ALL") list = list.filter((i) => i.type === filterType);
@@ -89,13 +100,11 @@ export default function BudgetClient({
     return list;
   }, [items, filterType, filterCategoryId]);
 
-  // Totals for ALL items (summary cards always show full picture)
   const totalsByType = useMemo(() => {
     const calc = (type: "INCOME" | "EXPENSE") => {
-      const subset = items.filter((i) => i.type === type);
-      return subset.reduce(
+      return items.filter((i) => i.type === type).reduce(
         (acc, i) => {
-          const b = vatBreakdown(i.amount, i.hasVat);
+          const b = vatBreakdown(i.amount, i.vatMode);
           return { gross: acc.gross + b.gross, vat: acc.vat + b.vat, net: acc.net + b.net };
         },
         { gross: 0, vat: 0, net: 0 }
@@ -106,16 +115,14 @@ export default function BudgetClient({
 
   const balance = totalsByType.income.net - totalsByType.expense.net;
 
-  // Category list for current filter
   const visibleCategories = filterType === "INCOME" ? incomeCategories : filterType === "EXPENSE" ? expenseCategories : allCategories;
 
-  // Category breakdown for filtered items
   const breakdown = useMemo(() => {
     const map = new Map<string, { name: string; count: number; net: number; vat: number; gross: number }>();
     for (const item of filtered) {
       const key = item.categoryId ?? "__none__";
       const label = item.categoryName ?? "ללא קטגוריה";
-      const b = vatBreakdown(item.amount, item.hasVat);
+      const b = vatBreakdown(item.amount, item.vatMode);
       const prev = map.get(key) ?? { name: label, count: 0, net: 0, vat: 0, gross: 0 };
       map.set(key, { name: label, count: prev.count + 1, net: prev.net + b.net, vat: prev.vat + b.vat, gross: prev.gross + b.gross });
     }
@@ -123,37 +130,37 @@ export default function BudgetClient({
   }, [filtered]);
 
   function openAdd(type: "INCOME" | "EXPENSE") {
-    setDefaultType(type);
     setEditItem(null);
-    setFormAmount("");
-    setFormHasVat(false);
     setFormType(type);
+    setFormVatMode("NONE");
+    setFormAmount("");
     setShowForm(true);
   }
 
   function openEdit(item: BudgetItem) {
     setEditItem(item);
-    setFormAmount(String(item.amount));
-    setFormHasVat(item.hasVat);
     setFormType(item.type);
+    setFormVatMode((item.vatMode as VatMode) || "NONE");
+    setFormAmount(String(item.amount));
     setShowForm(true);
   }
 
-  // VAT preview
+  function closeForm() { setShowForm(false); setEditItem(null); }
+
   const previewAmount = parseInt(formAmount) || 0;
-  const preview = vatBreakdown(previewAmount, formHasVat);
+  const preview = vatBreakdown(previewAmount, formVatMode);
 
   function handleExport() {
     const rows = filtered.map((item) => {
-      const b = vatBreakdown(item.amount, item.hasVat);
+      const b = vatBreakdown(item.amount, item.vatMode);
       return {
         "תיאור": item.description,
         "סוג": item.type === "INCOME" ? "הכנסה" : "הוצאה",
         "קטגוריה": item.categoryName ?? "",
         "ספק/גורם": item.vendor ?? "",
         "סכום": b.gross,
-        'כולל מע"מ': item.hasVat ? "כן" : "לא",
-        'מע"מ': b.vat,
+        'מע"מ': item.vatMode === "NONE" ? "ללא" : item.vatMode === "INCLUDED" ? "כולל" : "פלוס",
+        'מע"מ בש"ח': b.vat || "",
         "נטו": b.net,
         "שולם": item.isPaid ? "כן" : "לא",
         "תאריך": item.date.split("T")[0],
@@ -161,7 +168,7 @@ export default function BudgetClient({
       };
     });
     const wb = buildWorkbook(
-      ["תיאור", "סוג", "קטגוריה", "ספק/גורם", "סכום", 'כולל מע"מ', 'מע"מ', "נטו", "שולם", "תאריך", "הערות"],
+      ["תיאור", "סוג", "קטגוריה", "ספק/גורם", "סכום", 'מע"מ', 'מע"מ בש"ח', "נטו", "שולם", "תאריך", "הערות"],
       rows
     );
     downloadWorkbook("budget.xlsx", wb);
@@ -171,23 +178,21 @@ export default function BudgetClient({
     const mapped: BulkBudgetItem[] = rows.map((row) => {
       const rawType = mapColumn(row, ["סוג", "type"]).toLowerCase();
       const type: "INCOME" | "EXPENSE" = rawType.includes("הכנסה") || rawType.includes("income") ? "INCOME" : "EXPENSE";
-      const rawCat = mapColumn(row, ["קטגוריה", "category", "סוג"]);
+      const rawCat = mapColumn(row, ["קטגוריה", "category"]);
       const catPool = type === "INCOME" ? incomeCategories : expenseCategories;
       const matchedCat = rawCat
-        ? catPool.find(
-            (c) =>
-              c.name.toLowerCase().includes(rawCat.toLowerCase()) ||
-              rawCat.toLowerCase().includes(c.name.toLowerCase())
-          )
+        ? catPool.find((c) => c.name.toLowerCase().includes(rawCat.toLowerCase()) || rawCat.toLowerCase().includes(c.name.toLowerCase()))
         : undefined;
       const rawDate = mapColumn(row, ["תאריך", "date"]);
       let parsedDate: string | undefined;
       if (rawDate) {
-        // Support DD/MM/YYYY and YYYY-MM-DD
         const ddmm = rawDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
         parsedDate = ddmm ? `${ddmm[3]}-${ddmm[2].padStart(2, "0")}-${ddmm[1].padStart(2, "0")}` : rawDate;
       }
-      const rawVat = mapColumn(row, ['מע"מ', "כולל מע", "vat", "hasVat"]).toLowerCase();
+      const rawVat = mapColumn(row, ['מע"מ', "vat", "מעמ"]).toLowerCase();
+      const vatMode = rawVat.includes("כולל") || rawVat === "included" ? "INCLUDED"
+        : rawVat.includes("פלוס") || rawVat === "added" ? "ADDED"
+        : "NONE";
       const rawPaid = mapColumn(row, ["שולם", "paid"]).toLowerCase();
       return {
         description: mapColumn(row, ["תיאור", "description", "שם"]),
@@ -195,17 +200,16 @@ export default function BudgetClient({
         categoryId: matchedCat?.id,
         vendor: mapColumn(row, ["ספק", "vendor", "גורם"]) || undefined,
         amount: parseFloat(mapColumn(row, ["סכום", "amount", "מחיר"]).replace(/,/g, "")) || 0,
-        hasVat: rawVat === "כן" || rawVat === "yes" || rawVat === "true",
+        vatMode,
         isPaid: rawPaid === "כן" || rawPaid === "yes" || rawPaid === "true",
         date: parsedDate,
-        notes: mapColumn(row, ["הערות", "notes", "comment"]) || undefined,
+        notes: mapColumn(row, ["הערות", "notes"]) || undefined,
       };
     });
     const r = await bulkCreateBudgetItems(festivalId, mapped);
     return { imported: r.created, skipped: r.skipped };
   }
 
-  // Category manager
   async function handleAddCategory() {
     if (!newCatName.trim()) return;
     setAddingCat(true);
@@ -213,9 +217,7 @@ export default function BudgetClient({
       await createCategory(festivalId, newCatName.trim(), catTab);
       setNewCatName("");
       toast("קטגוריה נוספה");
-    } finally {
-      setAddingCat(false);
-    }
+    } finally { setAddingCat(false); }
   }
 
   async function handleSaveEditCat(id: string) {
@@ -228,7 +230,7 @@ export default function BudgetClient({
   async function handleDeleteCat(cat: Category) {
     const inUse = items.filter((i) => i.categoryId === cat.id).length;
     const msg = inUse > 0
-      ? `למחוק את הקטגוריה "${cat.name}"? ${inUse} פריטים יאבדו את הקטגוריה שלהם.`
+      ? `למחוק את הקטגוריה "${cat.name}"? ${inUse} פריטים יאבדו את הקטגוריה.`
       : `למחוק את הקטגוריה "${cat.name}"?`;
     const ok = await confirm({ message: msg, danger: true, confirmLabel: "מחק" });
     if (!ok) return;
@@ -237,7 +239,6 @@ export default function BudgetClient({
   }
 
   const inputCls = "w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition bg-white";
-
   const currentCategories = catTab === "EXPENSE" ? expenseCategories : incomeCategories;
 
   return (
@@ -247,20 +248,12 @@ export default function BudgetClient({
         <h1 className="text-2xl font-bold text-gray-900">💰 תקציב</h1>
         <div className="flex flex-wrap gap-2">
           {isAdmin && (
-            <button
-              onClick={() => setShowCategoryManager(true)}
-              className="flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
-            >
-              <Settings2 size={14} />
-              קטגוריות
+            <button onClick={() => setShowCategoryManager(true)} className="flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">
+              <Settings2 size={14} />קטגוריות
             </button>
           )}
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
-          >
-            <Download size={14} />
-            ייצא Excel
+          <button onClick={handleExport} className="flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">
+            <Download size={14} />ייצא Excel
           </button>
           {isAdmin && (
             <ExcelImportModal
@@ -278,12 +271,8 @@ export default function BudgetClient({
           )}
           {isAdmin && (
             <>
-              <button onClick={() => openAdd("INCOME")} className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors">
-                + הכנסה
-              </button>
-              <button onClick={() => openAdd("EXPENSE")} className="bg-red-500 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-red-600 transition-colors">
-                + הוצאה
-              </button>
+              <button onClick={() => openAdd("INCOME")} className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors">+ הכנסה</button>
+              <button onClick={() => openAdd("EXPENSE")} className="bg-red-500 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-red-600 transition-colors">+ הוצאה</button>
             </>
           )}
         </div>
@@ -294,7 +283,7 @@ export default function BudgetClient({
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
           <p className="text-xs text-emerald-600 font-medium mb-1">הכנסות</p>
           <p className="text-2xl font-bold text-emerald-700">{formatCurrency(totalsByType.income.gross)}</p>
-          {anyHasVat && totalsByType.income.vat > 0 && (
+          {anyVat && totalsByType.income.vat > 0 && (
             <p className="text-xs text-emerald-500 mt-1">נטו {formatCurrency(totalsByType.income.net)} | מע"מ {formatCurrency(totalsByType.income.vat)}</p>
           )}
           <p className="text-xs text-emerald-400 mt-0.5">{items.filter((i) => i.type === "INCOME").length} פריטים</p>
@@ -302,7 +291,7 @@ export default function BudgetClient({
         <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
           <p className="text-xs text-red-600 font-medium mb-1">הוצאות</p>
           <p className="text-2xl font-bold text-red-600">{formatCurrency(totalsByType.expense.gross)}</p>
-          {anyHasVat && totalsByType.expense.vat > 0 && (
+          {anyVat && totalsByType.expense.vat > 0 && (
             <p className="text-xs text-red-400 mt-1">נטו {formatCurrency(totalsByType.expense.net)} | מע"מ {formatCurrency(totalsByType.expense.vat)}</p>
           )}
           <p className="text-xs text-red-400 mt-0.5">{items.filter((i) => i.type === "EXPENSE").length} פריטים</p>
@@ -310,11 +299,7 @@ export default function BudgetClient({
         <div className={`rounded-2xl p-4 border ${balance >= 0 ? "bg-blue-50 border-blue-200" : "bg-orange-50 border-orange-200"}`}>
           <p className={`text-xs font-medium mb-1 ${balance >= 0 ? "text-blue-600" : "text-orange-600"}`}>יתרה נטו</p>
           <p className={`text-2xl font-bold ${balance >= 0 ? "text-blue-700" : "text-orange-600"}`}>{formatCurrency(balance)}</p>
-          {anyHasVat && (
-            <p className={`text-xs mt-1 ${balance >= 0 ? "text-blue-400" : "text-orange-400"}`}>
-              גרוס {formatCurrency(totalsByType.income.gross - totalsByType.expense.gross)}
-            </p>
-          )}
+          {anyVat && <p className={`text-xs mt-1 ${balance >= 0 ? "text-blue-400" : "text-orange-400"}`}>גרוס {formatCurrency(totalsByType.income.gross - totalsByType.expense.gross)}</p>}
           <p className={`text-xs mt-0.5 ${balance >= 0 ? "text-blue-400" : "text-orange-400"}`}>{balance >= 0 ? "✓ חיובי" : "⚠ גירעון"}</p>
         </div>
       </div>
@@ -322,31 +307,23 @@ export default function BudgetClient({
       {/* Type filter */}
       <div className="flex flex-wrap gap-2 mb-2">
         {(["ALL", "INCOME", "EXPENSE"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => { setFilterType(t); setFilterCategoryId(null); }}
-            className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-colors ${filterType === t ? "bg-gray-800 text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"}`}
-          >
+          <button key={t} onClick={() => { setFilterType(t); setFilterCategoryId(null); }}
+            className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-colors ${filterType === t ? "bg-gray-800 text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
             {t === "ALL" ? `הכל (${items.length})` : t === "INCOME" ? `הכנסות (${items.filter((i) => i.type === "INCOME").length})` : `הוצאות (${items.filter((i) => i.type === "EXPENSE").length})`}
           </button>
         ))}
       </div>
 
-      {/* Category filter chips */}
+      {/* Category filter */}
       {visibleCategories.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-4">
-          <button
-            onClick={() => setFilterCategoryId(null)}
-            className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${filterCategoryId === null ? "bg-violet-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-          >
+          <button onClick={() => setFilterCategoryId(null)}
+            className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${filterCategoryId === null ? "bg-violet-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
             כל הקטגוריות
           </button>
           {visibleCategories.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => setFilterCategoryId(filterCategoryId === c.id ? null : c.id)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${filterCategoryId === c.id ? "bg-violet-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-            >
+            <button key={c.id} onClick={() => setFilterCategoryId(filterCategoryId === c.id ? null : c.id)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${filterCategoryId === c.id ? "bg-violet-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
               {c.name} ({items.filter((i) => i.categoryId === c.id).length})
             </button>
           ))}
@@ -356,10 +333,8 @@ export default function BudgetClient({
       {/* Table */}
       {filtered.length === 0 ? (
         isAdmin && items.length === 0 ? (
-          <button
-            onClick={() => openAdd("EXPENSE")}
-            className="w-full bg-white rounded-2xl border border-dashed border-gray-300 p-12 text-center text-gray-400 hover:bg-violet-50 hover:border-violet-400 hover:text-violet-500 transition-colors group"
-          >
+          <button onClick={() => openAdd("EXPENSE")}
+            className="w-full bg-white rounded-2xl border border-dashed border-gray-300 p-12 text-center text-gray-400 hover:bg-violet-50 hover:border-violet-400 hover:text-violet-500 transition-colors group">
             <div className="text-4xl mb-2">💸</div>
             <p className="font-medium">עדיין אין פריטים בתקציב</p>
             <p className="text-xs mt-2 opacity-0 group-hover:opacity-100 transition-opacity">+ לחץ להוספת פריט ראשון</p>
@@ -378,8 +353,8 @@ export default function BudgetClient({
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="text-right px-4 py-3 font-semibold text-gray-600">תיאור</th>
                   <th className="text-right px-4 py-3 font-semibold text-gray-600 hidden sm:table-cell">קטגוריה</th>
-                  {anyHasVat && <th className="text-right px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">נטו</th>}
-                  {anyHasVat && <th className="text-right px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">מע"מ</th>}
+                  {anyVat && <th className="text-right px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">נטו</th>}
+                  {anyVat && <th className="text-right px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">מע"מ</th>}
                   <th className="text-right px-4 py-3 font-semibold text-gray-600">סה"כ</th>
                   <th className="text-right px-4 py-3 font-semibold text-gray-600 hidden sm:table-cell">תאריך</th>
                   <th className="text-right px-4 py-3 font-semibold text-gray-600">שולם</th>
@@ -388,7 +363,7 @@ export default function BudgetClient({
               </thead>
               <tbody>
                 {filtered.map((item) => {
-                  const b = vatBreakdown(item.amount, item.hasVat);
+                  const b = vatBreakdown(item.amount, item.vatMode);
                   return (
                     <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3">
@@ -397,6 +372,11 @@ export default function BudgetClient({
                           <div>
                             <p className="font-medium text-gray-900">{item.description}</p>
                             {item.vendor && <p className="text-xs text-gray-400">{item.vendor}</p>}
+                            {item.vatMode !== "NONE" && (
+                              <span className="text-xs bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-medium">
+                                {VAT_LABEL[item.vatMode as VatMode]}
+                              </span>
+                            )}
                             {item.notes && <p className="text-xs text-gray-400 truncate max-w-48">{item.notes}</p>}
                           </div>
                         </div>
@@ -404,23 +384,20 @@ export default function BudgetClient({
                       <td className="px-4 py-3 hidden sm:table-cell">
                         {item.categoryName ? (
                           <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-lg text-xs">{item.categoryName}</span>
-                        ) : (
-                          <span className="text-gray-300">—</span>
-                        )}
+                        ) : <span className="text-gray-300">—</span>}
                       </td>
-                      {anyHasVat && (
-                        <td className={`px-4 py-3 text-xs text-gray-500 hidden md:table-cell`}>
-                          {item.hasVat ? formatCurrency(b.net) : <span className="text-gray-300">—</span>}
+                      {anyVat && (
+                        <td className="px-4 py-3 text-xs text-gray-500 hidden md:table-cell">
+                          {item.vatMode !== "NONE" ? formatCurrency(b.net) : <span className="text-gray-300">—</span>}
                         </td>
                       )}
-                      {anyHasVat && (
+                      {anyVat && (
                         <td className="px-4 py-3 text-xs text-gray-500 hidden md:table-cell">
-                          {item.hasVat ? formatCurrency(b.vat) : <span className="text-gray-300">—</span>}
+                          {item.vatMode !== "NONE" ? formatCurrency(b.vat) : <span className="text-gray-300">—</span>}
                         </td>
                       )}
                       <td className={`px-4 py-3 font-semibold ${item.type === "INCOME" ? "text-emerald-600" : "text-red-500"}`}>
                         {item.type === "EXPENSE" ? "-" : "+"}{formatCurrency(b.gross)}
-                        {item.hasVat && <span className="text-xs font-normal text-gray-400 mr-1">+מע"מ</span>}
                       </td>
                       <td className="px-4 py-3 text-gray-500 text-xs hidden sm:table-cell">{formatDate(item.date)}</td>
                       <td className="px-4 py-3">
@@ -440,21 +417,11 @@ export default function BudgetClient({
                       {isAdmin && (
                         <td className="px-4 py-3">
                           <div className="flex gap-1 justify-end">
-                            <button
-                              onClick={() => openEdit(item)}
-                              className="text-gray-400 hover:text-violet-600 transition-colors px-2 py-1 rounded hover:bg-violet-50"
-                            >
-                              <Pencil size={14} />
-                            </button>
-                            <button
-                              onClick={async () => {
-                                const ok = await confirm({ message: "למחוק פריט זה?", danger: true, confirmLabel: "מחק" });
-                                if (ok) { await deleteBudgetItem(item.id, festivalId); toast("הפריט נמחק"); }
-                              }}
-                              className="text-gray-400 hover:text-red-500 transition-colors px-2 py-1 rounded hover:bg-red-50"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                            <button onClick={() => openEdit(item)} className="text-gray-400 hover:text-violet-600 transition-colors px-2 py-1 rounded hover:bg-violet-50"><Pencil size={14} /></button>
+                            <button onClick={async () => {
+                              const ok = await confirm({ message: "למחוק פריט זה?", danger: true, confirmLabel: "מחק" });
+                              if (ok) { await deleteBudgetItem(item.id, festivalId); toast("הפריט נמחק"); }
+                            }} className="text-gray-400 hover:text-red-500 transition-colors px-2 py-1 rounded hover:bg-red-50"><Trash2 size={14} /></button>
                           </div>
                         </td>
                       )}
@@ -467,7 +434,7 @@ export default function BudgetClient({
         </div>
       )}
 
-      {/* Category breakdown */}
+      {/* Breakdown by category */}
       {breakdown.length > 1 && (
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100">
@@ -479,8 +446,8 @@ export default function BudgetClient({
                 <tr className="bg-gray-50 border-b border-gray-100">
                   <th className="text-right px-4 py-2 text-xs font-semibold text-gray-500">קטגוריה</th>
                   <th className="text-right px-4 py-2 text-xs font-semibold text-gray-500">פריטים</th>
-                  {anyHasVat && <th className="text-right px-4 py-2 text-xs font-semibold text-gray-500">נטו</th>}
-                  {anyHasVat && <th className="text-right px-4 py-2 text-xs font-semibold text-gray-500">מע"מ</th>}
+                  {anyVat && <th className="text-right px-4 py-2 text-xs font-semibold text-gray-500">נטו</th>}
+                  {anyVat && <th className="text-right px-4 py-2 text-xs font-semibold text-gray-500">מע"מ</th>}
                   <th className="text-right px-4 py-2 text-xs font-semibold text-gray-500">סה"כ</th>
                 </tr>
               </thead>
@@ -489,8 +456,8 @@ export default function BudgetClient({
                   <tr key={row.name} className="border-b border-gray-50 hover:bg-gray-50">
                     <td className="px-4 py-2 font-medium text-gray-800">{row.name}</td>
                     <td className="px-4 py-2 text-gray-500">{row.count}</td>
-                    {anyHasVat && <td className="px-4 py-2 text-gray-600">{formatCurrency(row.net)}</td>}
-                    {anyHasVat && <td className="px-4 py-2 text-gray-500 text-xs">{row.vat > 0 ? formatCurrency(row.vat) : "—"}</td>}
+                    {anyVat && <td className="px-4 py-2 text-gray-600">{formatCurrency(row.net)}</td>}
+                    {anyVat && <td className="px-4 py-2 text-gray-500 text-xs">{row.vat > 0 ? formatCurrency(row.vat) : "—"}</td>}
                     <td className="px-4 py-2 font-semibold text-gray-800">{formatCurrency(row.gross)}</td>
                   </tr>
                 ))}
@@ -503,15 +470,13 @@ export default function BudgetClient({
       {/* Add/Edit Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setShowForm(false); setEditItem(null); }} />
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeForm} />
           <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-[95vw] sm:max-w-md p-4 sm:p-6 z-10 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-semibold text-gray-900">
                 {editItem ? "עריכת פריט" : formType === "INCOME" ? "הוסף הכנסה" : "הוסף הוצאה"}
               </h2>
-              <button onClick={() => { setShowForm(false); setEditItem(null); }} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors">
-                <X size={18} />
-              </button>
+              <button onClick={closeForm} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"><X size={18} /></button>
             </div>
 
             <form
@@ -525,10 +490,10 @@ export default function BudgetClient({
                     await createBudgetItem(fd);
                     toast("הפריט נוסף");
                   }
-                  setShowForm(false);
-                  setEditItem(null);
-                } catch {
-                  toast("שגיאה בשמירה", "error");
+                  closeForm();
+                } catch (err) {
+                  console.error("Budget save error:", err);
+                  toast("שגיאה בשמירה");
                 } finally {
                   setSubmitting(false);
                 }
@@ -536,29 +501,23 @@ export default function BudgetClient({
               className="space-y-4"
             >
               <input type="hidden" name="festivalId" value={festivalId} />
+              {/* type is submitted via hidden input; buttons are decorative */}
+              <input type="hidden" name="type" value={formType} />
+              <input type="hidden" name="vatMode" value={formVatMode} />
 
-              {/* Type */}
+              {/* Type selector */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">סוג</label>
                 <div className="flex gap-2">
                   {(["INCOME", "EXPENSE"] as const).map((t) => (
-                    <label key={t} className="flex-1 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="type"
-                        value={t}
-                        checked={formType === t}
-                        onChange={() => setFormType(t)}
-                        className="sr-only"
-                      />
-                      <span className={`block text-center py-2 rounded-xl border text-sm font-medium transition-colors ${
+                    <button key={t} type="button" onClick={() => setFormType(t)}
+                      className={`flex-1 py-2 rounded-xl border text-sm font-medium transition-colors ${
                         formType === t
                           ? t === "INCOME" ? "bg-emerald-600 text-white border-emerald-600" : "bg-red-500 text-white border-red-500"
                           : t === "INCOME" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-600"
                       }`}>
-                        {t === "INCOME" ? "הכנסה" : "הוצאה"}
-                      </span>
-                    </label>
+                      {t === "INCOME" ? "הכנסה" : "הוצאה"}
+                    </button>
                   ))}
                 </div>
               </div>
@@ -566,51 +525,48 @@ export default function BudgetClient({
               {/* Description */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">תיאור *</label>
-                <input
-                  name="description"
-                  required
-                  autoFocus
-                  defaultValue={editItem?.description ?? ""}
-                  placeholder="כרטיסי כניסה / שכר DJ..."
-                  className={inputCls}
-                />
+                <input name="description" required autoFocus defaultValue={editItem?.description ?? ""}
+                  placeholder="כרטיסי כניסה / שכר DJ..." className={inputCls} />
               </div>
 
-              {/* Amount + VAT */}
+              {/* VAT mode toggle */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">מע"מ</label>
+                <div className="grid grid-cols-3 gap-1 bg-gray-100 rounded-xl p-1">
+                  {(["NONE", "INCLUDED", "ADDED"] as VatMode[]).map((mode) => (
+                    <button key={mode} type="button" onClick={() => setFormVatMode(mode)}
+                      className={`py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        formVatMode === mode ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"
+                      }`}>
+                      {VAT_LABEL[mode]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Amount */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {formHasVat ? 'סכום (כולל מע"מ) (₪) *' : "סכום (₪) *"}
+                  {formVatMode === "INCLUDED" ? 'סכום כולל מע"מ (₪) *' : formVatMode === "ADDED" ? 'סכום לפני מע"מ (₪) *' : "סכום (₪) *"}
                 </label>
-                <input
-                  name="amount"
-                  type="number"
-                  required
-                  min={1}
-                  value={formAmount}
-                  onChange={(e) => setFormAmount(e.target.value)}
-                  placeholder="5000"
-                  className={inputCls}
-                />
-                {formHasVat && previewAmount > 0 && (
+                <input name="amount" type="number" required min={1}
+                  value={formAmount} onChange={(e) => setFormAmount(e.target.value)}
+                  placeholder="5000" className={inputCls} />
+                {formVatMode !== "NONE" && previewAmount > 0 && (
                   <div className="mt-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-xs text-amber-800 flex gap-4">
-                    <span>נטו: <b>{formatCurrency(preview.net)}</b></span>
-                    <span>מע"מ (17%): <b>{formatCurrency(preview.vat)}</b></span>
+                    {formVatMode === "INCLUDED" ? (
+                      <>
+                        <span>נטו: <b>{formatCurrency(preview.net)}</b></span>
+                        <span>מע"מ 17%: <b>{formatCurrency(preview.vat)}</b></span>
+                      </>
+                    ) : (
+                      <>
+                        <span>מע"מ 17%: <b>{formatCurrency(preview.vat)}</b></span>
+                        <span>סה"כ לתשלום: <b>{formatCurrency(preview.gross)}</b></span>
+                      </>
+                    )}
                   </div>
                 )}
-              </div>
-
-              {/* VAT toggle */}
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  name="hasVat"
-                  value="true"
-                  id="hasVat"
-                  checked={formHasVat}
-                  onChange={(e) => setFormHasVat(e.target.checked)}
-                  className="rounded"
-                />
-                <label htmlFor="hasVat" className="text-sm text-gray-700">כולל מע"מ (17%)</label>
               </div>
 
               {/* Category */}
@@ -627,13 +583,8 @@ export default function BudgetClient({
               {/* Vendor */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">ספק / גורם</label>
-                <input
-                  name="vendor"
-                  defaultValue={editItem?.vendor ?? ""}
-                  list="vendor-list"
-                  placeholder="שם הספק..."
-                  className={inputCls}
-                />
+                <input name="vendor" defaultValue={editItem?.vendor ?? ""} list="vendor-list"
+                  placeholder="שם הספק..." className={inputCls} />
                 <datalist id="vendor-list">
                   {vendorNames.map((v) => <option key={v} value={v} />)}
                 </datalist>
@@ -642,40 +593,27 @@ export default function BudgetClient({
               {/* Date */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">תאריך</label>
-                <input
-                  name="date"
-                  type="date"
+                <input name="date" type="date"
                   defaultValue={editItem?.date?.split("T")[0] ?? new Date().toISOString().split("T")[0]}
-                  className={inputCls}
-                />
+                  className={inputCls} />
               </div>
 
               {/* Paid */}
               <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  name="isPaid"
-                  value="true"
-                  id="isPaid"
-                  defaultChecked={editItem?.isPaid ?? false}
-                  className="rounded"
-                />
+                <input type="checkbox" name="isPaid" value="true" id="isPaid"
+                  defaultChecked={editItem?.isPaid ?? false} className="rounded" />
                 <label htmlFor="isPaid" className="text-sm text-gray-700">שולם</label>
               </div>
 
               {/* Notes */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">הערות</label>
-                <textarea
-                  name="notes"
-                  rows={2}
-                  defaultValue={editItem?.notes ?? ""}
-                  className={`${inputCls} resize-none`}
-                />
+                <textarea name="notes" rows={2} defaultValue={editItem?.notes ?? ""}
+                  className={`${inputCls} resize-none`} />
               </div>
 
               <div className="flex gap-2 justify-end pt-2">
-                <button type="button" onClick={() => { setShowForm(false); setEditItem(null); }} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition">ביטול</button>
+                <button type="button" onClick={closeForm} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition">ביטול</button>
                 <button type="submit" disabled={submitting} className="px-4 py-2 text-sm bg-violet-600 text-white rounded-xl hover:bg-violet-700 transition disabled:opacity-60">
                   {submitting ? "שומר..." : editItem ? "שמור שינויים" : "הוסף"}
                 </button>
@@ -691,28 +629,18 @@ export default function BudgetClient({
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[80vh] flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h2 className="font-bold text-gray-900 text-lg">ניהול קטגוריות תקציב</h2>
-              <button onClick={() => setShowCategoryManager(false)} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors">
-                <X size={18} />
-              </button>
+              <button onClick={() => setShowCategoryManager(false)} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"><X size={18} /></button>
             </div>
-
-            {/* Tabs */}
             <div className="flex border-b border-gray-100">
               {(["EXPENSE", "INCOME"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => { setCatTab(t); setEditingCatId(null); setNewCatName(""); }}
-                  className={`flex-1 py-2.5 text-sm font-medium transition-colors ${catTab === t ? "border-b-2 border-violet-600 text-violet-600" : "text-gray-500 hover:text-gray-700"}`}
-                >
+                <button key={t} onClick={() => { setCatTab(t); setEditingCatId(null); setNewCatName(""); }}
+                  className={`flex-1 py-2.5 text-sm font-medium transition-colors ${catTab === t ? "border-b-2 border-violet-600 text-violet-600" : "text-gray-500 hover:text-gray-700"}`}>
                   {t === "EXPENSE" ? "הוצאות" : "הכנסות"}
                 </button>
               ))}
             </div>
-
             <div className="p-4 overflow-y-auto flex-1 space-y-2">
-              {currentCategories.length === 0 && (
-                <p className="text-sm text-gray-400 text-center py-4">אין קטגוריות עדיין</p>
-              )}
+              {currentCategories.length === 0 && <p className="text-sm text-gray-400 text-center py-4">אין קטגוריות עדיין</p>}
               {currentCategories.map((cat) => {
                 const inUse = items.filter((i) => i.categoryId === cat.id).length;
                 const isEditing = editingCatId === cat.id;
@@ -720,47 +648,35 @@ export default function BudgetClient({
                   <div key={cat.id} className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2">
                     <span className="w-2 h-2 rounded-full bg-violet-400 flex-shrink-0" />
                     {isEditing ? (
-                      <input
-                        autoFocus
-                        value={editingCatName}
-                        onChange={(e) => setEditingCatName(e.target.value)}
+                      <input autoFocus value={editingCatName} onChange={(e) => setEditingCatName(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") handleSaveEditCat(cat.id); if (e.key === "Escape") setEditingCatId(null); }}
-                        className="flex-1 text-sm border border-violet-300 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-violet-200"
-                      />
+                        className="flex-1 text-sm border border-violet-300 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-violet-200" />
                     ) : (
                       <span className="flex-1 text-sm font-medium text-gray-800">{cat.name}</span>
                     )}
                     {inUse > 0 && !isEditing && <span className="text-xs text-gray-400">{inUse} פריטים</span>}
                     {isEditing ? (
-                      <button onClick={() => handleSaveEditCat(cat.id)} className="text-green-600 hover:text-green-700 p-1 rounded transition-colors"><Check size={14} /></button>
+                      <button onClick={() => handleSaveEditCat(cat.id)} className="text-green-600 hover:text-green-700 p-1 rounded"><Check size={14} /></button>
                     ) : (
-                      <button onClick={() => { setEditingCatId(cat.id); setEditingCatName(cat.name); }} className="text-gray-400 hover:text-violet-600 p-1 rounded transition-colors"><Pencil size={13} /></button>
+                      <button onClick={() => { setEditingCatId(cat.id); setEditingCatName(cat.name); }} className="text-gray-400 hover:text-violet-600 p-1 rounded"><Pencil size={13} /></button>
                     )}
                     {isEditing ? (
-                      <button onClick={() => setEditingCatId(null)} className="text-gray-400 hover:text-gray-600 p-1 rounded transition-colors"><X size={13} /></button>
+                      <button onClick={() => setEditingCatId(null)} className="text-gray-400 hover:text-gray-600 p-1 rounded"><X size={13} /></button>
                     ) : (
-                      <button onClick={() => handleDeleteCat(cat)} className="text-gray-400 hover:text-red-500 p-1 rounded transition-colors"><Trash2 size={13} /></button>
+                      <button onClick={() => handleDeleteCat(cat)} className="text-gray-400 hover:text-red-500 p-1 rounded"><Trash2 size={13} /></button>
                     )}
                   </div>
                 );
               })}
             </div>
-
             <div className="px-4 py-3 border-t border-gray-100">
               <div className="flex gap-2">
-                <input
-                  value={newCatName}
-                  onChange={(e) => setNewCatName(e.target.value)}
+                <input value={newCatName} onChange={(e) => setNewCatName(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") handleAddCategory(); }}
                   placeholder={`קטגוריית ${catTab === "EXPENSE" ? "הוצאה" : "הכנסה"} חדשה...`}
-                  className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddCategory}
-                  disabled={addingCat || !newCatName.trim()}
-                  className="bg-violet-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-violet-700 transition-colors disabled:opacity-60"
-                >
+                  className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition" />
+                <button type="button" onClick={handleAddCategory} disabled={addingCat || !newCatName.trim()}
+                  className="bg-violet-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-violet-700 transition-colors disabled:opacity-60">
                   {addingCat ? "מוסיף..." : "+ הוסף"}
                 </button>
               </div>

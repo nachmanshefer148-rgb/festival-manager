@@ -280,7 +280,7 @@ model BudgetItem {
   type        BudgetType
   categoryId  String?
   category    BudgetCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  hasVat      Boolean         @default(false)
+  vatMode     String          @default("NONE")
   date        DateTime        @default(now())
   isPaid      Boolean         @default(false)
   vendor      String?

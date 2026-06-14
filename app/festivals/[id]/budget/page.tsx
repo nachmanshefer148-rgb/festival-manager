@@ -57,7 +57,7 @@ export default async function BudgetPage({ params }: { params: Promise<{ id: str
     type: item.type,
     categoryId: item.categoryId ?? null,
     categoryName: item.category?.name ?? null,
-    hasVat: item.hasVat,
+    vatMode: item.vatMode,
     date: item.date.toISOString(),
     isPaid: item.isPaid,
     vendor: item.vendor ?? null,
