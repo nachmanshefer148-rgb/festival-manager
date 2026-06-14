@@ -132,7 +132,7 @@ export default function BudgetClient({
   function openAdd(type: "INCOME" | "EXPENSE") {
     setEditItem(null);
     setFormType(type);
-    setFormVatMode("NONE");
+    setFormVatMode(type === "INCOME" ? "INCLUDED" : "ADDED");
     setFormAmount("");
     setShowForm(true);
   }
@@ -140,7 +140,11 @@ export default function BudgetClient({
   function openEdit(item: BudgetItem) {
     setEditItem(item);
     setFormType(item.type);
-    setFormVatMode((item.vatMode as VatMode) || "NONE");
+    setFormVatMode(
+      item.vatMode === "INCLUDED" || item.vatMode === "ADDED"
+        ? (item.vatMode as VatMode)
+        : item.type === "INCOME" ? "INCLUDED" : "ADDED"
+    );
     setFormAmount(String(item.amount));
     setShowForm(true);
   }
@@ -535,7 +539,7 @@ export default function BudgetClient({
                 <div className="flex gap-2">
                   {(["INCLUDED", "ADDED"] as VatMode[]).map((mode) => (
                     <button key={mode} type="button"
-                      onClick={() => setFormVatMode(formVatMode === mode ? "NONE" : mode)}
+                      onClick={() => setFormVatMode(mode)}
                       className={`flex-1 py-1.5 rounded-xl border text-xs font-medium transition-colors ${
                         formVatMode === mode
                           ? "bg-amber-500 text-white border-amber-500"
