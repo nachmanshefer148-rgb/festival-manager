@@ -59,6 +59,7 @@ model Festival {
   teamMembers       TeamMember[]
   teamMemberRoles   TeamMemberRole[]
   budgetItems       BudgetItem[]
+  budgetCategories  BudgetCategory[]
   applications      TeamApplication[]
   vendors           Vendor[]
   vendorCategories  VendorCategory[]
@@ -70,6 +71,8 @@ model Festival {
   booths            Booth[]
   boothCategories   BoothCategory[]
   boothApplications BoothApplication[]
+  scannerTokens     ScannerToken[]
+  scanLogs          ScanLog[]
 }
 
 model Stage {
@@ -261,18 +264,29 @@ model TeamMember {
   shiftEnd              String?
 }
 
+model BudgetCategory {
+  id         String       @id @default(cuid())
+  name       String
+  type       BudgetType
+  festivalId String
+  festival   Festival     @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+  items      BudgetItem[]
+}
+
 model BudgetItem {
-  id          String     @id @default(cuid())
+  id          String          @id @default(cuid())
   description String
   amount      Int
   type        BudgetType
-  category    String?
-  date        DateTime   @default(now())
-  isPaid      Boolean    @default(false)
+  categoryId  String?
+  category    BudgetCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  hasVat      Boolean         @default(false)
+  date        DateTime        @default(now())
+  isPaid      Boolean         @default(false)
   vendor      String?
   notes       String?
   festivalId  String
-  festival    Festival   @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+  festival    Festival        @relation(fields: [festivalId], references: [id], onDelete: Cascade)
 }
 
 model TeamApplication {
@@ -511,4 +525,48 @@ enum BudgetType {
 enum UserRole {
   USER
   SUPER_ADMIN
+}
+
+// ─── Vehicle Scanner ─────────────────────────────────────────────────────────
+
+model ScannerToken {
+  id           String    @id @default(cuid())
+  token        String    @unique @default(uuid())
+  label        String
+  gateName     String
+  operatorName String?
+  festivalId   String
+  festival     Festival  @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+  scanLogs     ScanLog[]
+}
+
+model ScanLog {
+  id             String     @id @default(cuid())
+  festivalId     String
+  festival       Festival   @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+  scannerTokenId String
+  scannerToken   ScannerToken @relation(fields: [scannerTokenId], references: [id], onDelete: Cascade)
+  vehicleRef     String
+  plateNumber    String?
+  driverName     String?
+  ownerName      String?
+  vehicleType    String?
+  result         ScanResult
+  reason         String?
+  scannedAt      DateTime   @default(now())
+  gateName       String
+
+  @@index([festivalId, scannedAt])
+  @@index([scannerTokenId])
+  @@index([vehicleRef])
+}
+
+enum ScanResult {
+  APPROVED
+  DENIED
+  ERROR
+  MANUAL_OVERRIDE
 }

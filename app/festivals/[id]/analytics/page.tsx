@@ -14,7 +14,7 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ id: 
     prisma.teamMember.findMany({ where: { festivalId: id }, select: { id: true, role: { select: { name: true } } } }),
     prisma.vendor.findMany({ where: { festivalId: id }, select: { id: true, categoryId: true } }),
     prisma.booth.findMany({ where: { festivalId: id }, select: { id: true, categoryId: true } }),
-    prisma.budgetItem.findMany({ where: { festivalId: id }, select: { amount: true, type: true, category: true, isPaid: true } }),
+    prisma.budgetItem.findMany({ where: { festivalId: id }, select: { amount: true, type: true, categoryId: true, isPaid: true } }),
     prisma.timeSlot.findMany({
       where: { stage: { festivalId: id }, type: "PERFORMANCE" },
       select: { startTime: true, endTime: true, artistId: true },
@@ -30,7 +30,7 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ id: 
       teamMembers={teamMembers}
       vendors={vendors.map((v) => ({ id: v.id, category: v.categoryId ?? "" }))}
       booths={booths.map((b) => ({ id: b.id, category: b.categoryId ?? "" }))}
-      budgetItems={budgetItems}
+      budgetItems={budgetItems.map((b) => ({ ...b, category: b.categoryId ?? null }))}
       timeSlots={timeSlots.map((s) => ({
         startTime: s.startTime.toISOString(),
         endTime: s.endTime.toISOString(),
