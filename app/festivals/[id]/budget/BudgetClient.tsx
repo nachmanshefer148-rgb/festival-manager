@@ -532,11 +532,14 @@ export default function BudgetClient({
               {/* VAT mode toggle */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">מע"מ</label>
-                <div className="grid grid-cols-3 gap-1 bg-gray-100 rounded-xl p-1">
-                  {(["NONE", "INCLUDED", "ADDED"] as VatMode[]).map((mode) => (
-                    <button key={mode} type="button" onClick={() => setFormVatMode(mode)}
-                      className={`py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                        formVatMode === mode ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"
+                <div className="flex gap-2">
+                  {(["INCLUDED", "ADDED"] as VatMode[]).map((mode) => (
+                    <button key={mode} type="button"
+                      onClick={() => setFormVatMode(formVatMode === mode ? "NONE" : mode)}
+                      className={`flex-1 py-1.5 rounded-xl border text-xs font-medium transition-colors ${
+                        formVatMode === mode
+                          ? "bg-amber-500 text-white border-amber-500"
+                          : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
                       }`}>
                       {VAT_LABEL[mode]}
                     </button>
